@@ -244,8 +244,8 @@ module.exports = {
       });
 
       // debug
-      // console.log(quote);
-      // console.log(companyProfile);
+      console.log(quote);
+      console.log(companyProfile);
 
       // Stock Data 
       const emojiList = {
@@ -274,13 +274,25 @@ module.exports = {
 
       if (quote.hasPrePostMarketData) {
         if (marketSession === 'POST') {
-          prePostEmoji = ':crescent_moon:';
-          prePostPriceText = `\n${prePostEmoji} ${quote.postMarketPrice.toFixed(2)}`;
-          prePostChangeText = `\n${quote.postMarketChange > 0 ? '+' : ''}${quote.postMarketChange.toFixed(2)} (${quote.postMarketChangePercent.toFixed(2)}%)`;
+          if (!quote.postMarketPrice) {
+            prePostEmoji = ':crescent_moon:';
+            prePostPriceText = `\n${prePostEmoji} N/A`;
+            prePostChangeText = `\nN/A`;
+          } else {
+            prePostEmoji = ':crescent_moon:';
+            prePostPriceText = `\n${prePostEmoji} ${quote.postMarketPrice.toFixed(2)}`;
+            prePostChangeText = `\n${quote.postMarketChange > 0 ? '+' : ''}${quote.postMarketChange.toFixed(2)} (${quote.postMarketChangePercent.toFixed(2)}%)`;
+          }
         } else if (marketSession === 'PRE') {
-          prePostEmoji = ':sunny:';
-          prePostPriceText = `\n${prePostEmoji} ${quote.preMarketPrice.toFixed(2)}`;
-          prePostChangeText = `\n${quote.preMarketChange > 0 ? '+' : ''}${quote.preMarketChange.toFixed(2)} (${quote.preMarketChangePercent.toFixed(2)}%)`;
+          if (!quote.preMarketPrice) {
+            prePostEmoji = ':sunny:';
+            prePostPriceText = `\n${prePostEmoji} N/A`;
+            prePostChangeText = `\nN/A`;
+          } else {
+            prePostEmoji = ':sunny:';
+            prePostPriceText = `\n${prePostEmoji} ${quote.preMarketPrice.toFixed(2)}`;
+            prePostChangeText = `\n${quote.preMarketChange > 0 ? '+' : ''}${quote.preMarketChange.toFixed(2)} (${quote.preMarketChangePercent.toFixed(2)}%)`;
+          }
         }
       } else {
         prePostEmoji = '';
