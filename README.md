@@ -1,10 +1,7 @@
 .env file setup
 
-TOKEN=
-FINNHUB_API=
-DB_URI=
-
-SOUNDCLOUD_AUR= // unnecessary 
-
-COINGECKO_API_KEY=
-GOLD_API= // goldapi.io
+TOKEN=bot_discord_token
+FINNHUB_API=finnhub_api
+DB_URI=mongodb_api
+COINGECKO_API_KEY=coingecko_api
+GOLD_API=goldapi.io_api
