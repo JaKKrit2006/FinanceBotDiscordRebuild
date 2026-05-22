@@ -1,0 +1,39 @@
+{
+  "name": "bot-stock-discord",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@discord-player/extractor": "^7.1.0",
+    "@discordjs/voice": "^0.19.0",
+    "@google/genai": "^1.30.0",
+    "@napi-rs/canvas": "^0.1.82",
+    "@openrouter/sdk": "^0.1.27",
+    "@snazzah/davey": "^0.1.8",
+    "axios": "^1.16.1",
+    "canvas": "^3.2.0",
+    "discord-player": "^7.1.0",
+    "discord.js": "^14.25.0",
+    "dotenv": "^17.2.3",
+    "ffmpeg-static": "^5.3.0",
+    "finnhub": "^2.0.11",
+    "mongoose": "^8.24.0",
+    "node-fetch": "^3.3.2",
+    "node-vibrant": "^4.0.3",
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7",
+    "pretty-ms": "^9.3.0",
+    "rss-parser": "^3.13.0",
+    "sharp": "^0.34.5",
+    "tweetnacl": "^1.0.3",
+    "yahoo-finance2": "^3.14.1",
+    "ytdl-core": "^4.11.5"
+  }
+}
