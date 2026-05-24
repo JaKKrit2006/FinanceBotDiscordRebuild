@@ -163,8 +163,9 @@ async function addAssetData(interaction, query, sub, symbol, cost=0, volume=0) {
 
       const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
       const coinMatch = allCoin.find(c =>
-        c.name.toUpperCase() === symbol.toUpperCase() ||
-        c.id.toUpperCase() === symbol.toUpperCase()
+        c.symbol.toUpperCase() === symbol.toUpperCase() ||
+        c.id.toUpperCase() === symbol.toUpperCase() ||
+        c.name.toUpperCase() === symbol.toUpperCase()
       );
 
       if (!coinMatch) {
@@ -541,6 +542,7 @@ module.exports = {
             const mySelectAssets = upData.balance.assets.stock.find(i => i.symbol.toUpperCase() === itemSymbol);
             const myVolumeAssets = mySelectAssets.volume;
             const itemPrice = item.regularMarketPrice;
+            const cost = itemPrice * myVolumeAssets;
 
             const dataObject = {
               symbol: item.symbol.toUpperCase(),
@@ -550,7 +552,7 @@ module.exports = {
             }
 
             newArray.push(dataObject);
-            userBalance += itemPrice * myVolumeAssets;
+            userBalance += cost;
           });
 
           newArray.sort((a, b) => b.market - a.market);
@@ -585,7 +587,8 @@ module.exports = {
           for (const item of cryptoSymbol) {
             const coinMatch = allCoin.find(c =>
               c.name.toUpperCase() === item.toUpperCase() ||
-              c.id.toUpperCase() === item.toUpperCase()
+              c.id.toUpperCase() === item.toUpperCase() ||
+              c.symbol.toUpperCase() === item.toUpperCase()
             );
             if (coinMatch) {
               cryptoSym.push(coinMatch.id);
@@ -606,6 +609,7 @@ module.exports = {
           });
 
           const priceData = priceResponse.data;
+          // console.log(priceData);
 
           // create new array object
           let newArray = [];
@@ -614,13 +618,11 @@ module.exports = {
             const itemPrice = priceData[coinId].usd;
 
             // หา asset ที่ตรงกับ coin id หรือชื่อ
-            const coinInfo = allCoin.find(c => c.id === coinId);
-            let mySelectAssets = upData.balance.assets.crypto.find(
-              i => i.symbol.toUpperCase() === coinId.toUpperCase()
-            );
-            if (!mySelectAssets && coinInfo) {
+            const coinInfo = allCoin.find(c => c.id.toUpperCase() === coinId.toUpperCase());
+            let mySelectAssets;
+            if (coinInfo) {
               mySelectAssets = upData.balance.assets.crypto.find(
-                i => i.symbol.toUpperCase() === coinInfo.name.toUpperCase()
+                i => i.symbol.toUpperCase() === coinInfo.symbol.toUpperCase()
               );
             }
             if (!mySelectAssets) continue;

@@ -246,7 +246,8 @@ module.exports = {
         const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
         const coinMatch = allCoin.find(c =>
           c.name.toUpperCase() === selectAsset ||
-          c.id.toUpperCase() === selectAsset
+          c.id.toUpperCase() === selectAsset ||
+          c.symbol.toUpperCase() === selectAsset
         );
         if (!coinMatch) {
           return await interaction.editReply(`Sorry, your coin name could not find.`);

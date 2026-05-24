@@ -4,8 +4,10 @@
 
 const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions, AttachmentBuilder } = require('discord.js');
 const { allFields } = require('../../misc/allQuoteFields');
+const { drawCandlestickChart } = require('../../misc/drawGraph');
 const { Vibrant } = require("node-vibrant/node");
 
+const { subDays, format } = require('date-fns');
 const { createCanvas, loadImage } = require('canvas');
 const finnhub = require('finnhub');
 const axios = require('axios');
@@ -20,7 +22,6 @@ const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API)
 
 // Promisify Finnhub methods
 const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
-
 
 // function zone
 function formatNumber(num) {
@@ -107,17 +108,6 @@ module.exports = {
 
   callback: async (client, interaction) => {
     await interaction.deferReply();
-
-    // canvas
-    const canvas = createCanvas(1280, 720);
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // set buffer
-    const buffer = canvas.toBuffer('image/png');
-    const attachment = new AttachmentBuilder(buffer, { name: 'image.png' });
 
     const ticker = interaction.options.getString('ticker').toUpperCase();
     const isEarning = interaction.options.getBoolean('earning') || false;
@@ -255,9 +245,29 @@ module.exports = {
         fields: allFields.fields
       });
 
+      const today = new Date();
+      const pastDate = subDays(today, 90);
+      const formattedDate = format(pastDate, 'yyyy-MM-dd');
+
+      const queryOptions = {
+        period1: formattedDate, // YYYY-MM-DD
+        interval: '1d',
+      };
+      const chartResult = await yahooFinance.chart(ticker, queryOptions);
+      const chartData = chartResult.quotes;
+      // console.log(chartData);
+
+      const pngBuffer = await drawCandlestickChart(chartData, {
+        symbol   : ticker,
+        timeframe: "1D",
+        url_image: companyProfile.logo,
+      });
+
+      const attachment = new AttachmentBuilder(pngBuffer, { name: 'image.png' });
+
       // debug
-      console.log(quote);
-      console.log(companyProfile);
+      //console.log(quote);
+      //console.log(companyProfile);
 
       // Stock Data 
       const emojiList = {
@@ -350,10 +360,6 @@ module.exports = {
           {
             name: `:classical_building: Company`,
             value: `${quote.shortName || 'N/A'}`,
-          },
-          {
-            name: `:factory: Industry`,
-            value: `${companyProfile.finnhubIndustry || 'N/A'}`,
           },
           {
             name: `${marketEmoji} Market Price`,

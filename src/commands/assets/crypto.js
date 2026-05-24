@@ -2,14 +2,15 @@
   Updated to Web API with local allcoin.json
 */
 
-const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { Vibrant } = require("node-vibrant/node");
+const { drawCandlestickChart } = require('../../misc/drawGraph');
+
 const axios = require('axios');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-// 🔴 ใส่ API Key (Demo Plan) ของคุณที่นี่
 const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const BASE_URL = "https://api.coingecko.com/api/v3";
 
@@ -70,12 +71,22 @@ module.exports = {
       const coinMatch = allCoin.find(c => c.symbol.toUpperCase() === nameInput.toUpperCase() || c.id.toUpperCase() === nameInput.toUpperCase() || c.name.toUpperCase() === nameInput.toUpperCase());
       
       if (!coinMatch) {
-        return await interaction.editReply(`❌ ไม่พบข้อมูลเหรียญชื่อ **${nameInput}** ในไฟล์ระบบ ลองตรวจสอบตัวสะกดอีกครั้งค่ะ`);
+        return await interaction.editReply(`❌ ไม่พบข้อมูลเหรียญชื่อ **${nameInput}** ในไฟล์ระบบ ลองตรวจสอบอีกครั้ง หรือ โปรดเช็คในนี้ค่ะ [link](https://github.com/JaKKrit2006/FinanceBotDiscordRebuild/blob/main/allcoin.json)`);
       }
 
       const response = await axios.get(`${BASE_URL}/coins/${coinMatch.id}`, {
         headers: {
           'x-cg-demo-api-key': COINGECKO_API_KEY
+        }
+      });
+
+      const chartResponse = await axios.get(`${BASE_URL}/coins/${coinMatch.id}/ohlc`, {
+        headers: {
+          'x-cg-demo-api-key': COINGECKO_API_KEY
+        },
+        params: {
+          vs_currency: 'usd',
+          days: 30
         }
       });
 
@@ -86,7 +97,6 @@ module.exports = {
       const iconURL = `https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png`;
       const colors = await getColorImage(cryptoData.image.large) || '#000000';
 
-      // 5. สร้าง Embed ข้อมูล
       const cryptoEmbed = new EmbedBuilder()
         .setAuthor({
           name: `Request by ${interaction.user.username}`,
@@ -121,7 +131,7 @@ module.exports = {
           },
           {
             name: `${cryptoMarketData.price_change_24h > 0 ? ':small_red_triangle:' : ':small_red_triangle_down:'} Market Price`,
-            value: `$${cryptoMarketData.current_price.usd?.toLocaleString() || 'N/A'}`,
+            value: `${cryptoMarketData.current_price.usd?.toLocaleString() || 'N/A'}`,
             inline: true
           },
           {
@@ -131,7 +141,7 @@ module.exports = {
           },
           {
             name: 'High/Low (1D)',
-            value: `$${cryptoMarketData.high_24h.usd?.toLocaleString() || 'N/A'}/$${cryptoMarketData.low_24h.usd?.toLocaleString() || 'N/A'}`,
+            value: `${cryptoMarketData.high_24h.usd?.toLocaleString() || 'N/A'}/${cryptoMarketData.low_24h.usd?.toLocaleString() || 'N/A'}`,
             inline: true
           },
           {
@@ -151,7 +161,7 @@ module.exports = {
           },
           {
             name: ':gear: Misc',
-            value: `ATH: $${cryptoMarketData.ath.usd?.toLocaleString()} | HomePage: [link](${cryptoData.links.homepage[0]})`
+            value: `ATH: ${cryptoMarketData.ath.usd?.toLocaleString()} | HomePage: [link](${cryptoData.links.homepage[0]})`
           },
           {
             name: 'Currency',
@@ -176,7 +186,8 @@ module.exports = {
 
       await interaction.editReply({
         content: `${contentList[Math.floor(Math.random() * contentList.length)]} ${feelingEmojiList[Math.floor(Math.random() * feelingEmojiList.length)]}`,
-        embeds: [ cryptoEmbed ]
+        embeds: [ cryptoEmbed ],
+        // files: [attachment]
       });
 
     } catch (error) {
