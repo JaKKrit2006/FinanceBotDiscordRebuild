@@ -2,10 +2,11 @@
   It took me 3 Days to make this fucking noob things - fetch Stock data and Earning data Nov/5/2025 - Nov/7/2025
 */
 
-const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions, AttachmentBuilder } = require('discord.js');
 const { allFields } = require('../../misc/allQuoteFields');
 const { Vibrant } = require("node-vibrant/node");
 
+const { createCanvas, loadImage } = require('canvas');
 const finnhub = require('finnhub');
 const axios = require('axios');
 const sharp = require('sharp');
@@ -15,7 +16,7 @@ const util = require('util');
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API) // Replace this
+const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API)
 
 // Promisify Finnhub methods
 const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
@@ -106,6 +107,17 @@ module.exports = {
 
   callback: async (client, interaction) => {
     await interaction.deferReply();
+
+    // canvas
+    const canvas = createCanvas(1280, 720);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // set buffer
+    const buffer = canvas.toBuffer('image/png');
+    const attachment = new AttachmentBuilder(buffer, { name: 'image.png' });
 
     const ticker = interaction.options.getString('ticker').toUpperCase();
     const isEarning = interaction.options.getBoolean('earning') || false;
@@ -324,6 +336,7 @@ module.exports = {
         .setTitle(`**${ticker}**`)
         .setColor(embedColors)
         .setThumbnail(companyProfile.logo || null)
+        .setImage('attachment://image.png')
         // .setURL(`https://finance.yahoo.com/quote/${ticker}/`)
         .setFooter({
           text: `${marketSessionText || 'Closed'} | 🗓️ ${new Date().toLocaleString('en-GB', {
@@ -402,7 +415,8 @@ module.exports = {
 
       await interaction.editReply({
         content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
-        embeds: [ stockEmbed ]
+        embeds: [ stockEmbed ],
+        files: [attachment]
       });
     }
     

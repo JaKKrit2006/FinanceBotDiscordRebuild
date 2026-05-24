@@ -46,8 +46,8 @@ module.exports = {
 
   options: [
     {
-      name: 'name',
-      description: `The name of crypto currency (example: Bitcoin, Ethereum, BNB)`,
+      name: 'symbol',
+      description: `The symbol or name of the cryptocurrency (example: BTC, ETH, USDT, Bitcoin, Ethereum, Tether)`,
       type: ApplicationCommandOptionType.String,
       required: true,
     }
@@ -57,10 +57,8 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      // 1. รับค่าที่ผู้ใช้พิมพ์เข้ามา
-      const nameInput = interaction.options.getString('name');
+      const nameInput = interaction.options.getString('symbol');
 
-      // 2. อ่านข้อมูลจากไฟล์ allcoin.json ในเครื่อง
       const allCoinPath = path.join(__dirname, '..', '..', '..', 'allcoin.json');
       if (!fs.existsSync(allCoinPath)) {
         return await interaction.editReply("❌ ไม่พบไฟล์ allcoin.json ในระบบ กรุณาตรวจสอบพาร์ทไฟล์");
@@ -68,14 +66,13 @@ module.exports = {
       
       const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
 
-      // 3. ค้นหา Coin ID จากชื่อ (รองรับการพิมพ์พิมพ์เล็ก-ใหญ่)
-      const coinMatch = allCoin.find(c => c.name.toUpperCase() === nameInput.toUpperCase() || c.id.toUpperCase() === nameInput.toUpperCase());
+      // find coinId by symbol
+      const coinMatch = allCoin.find(c => c.symbol.toUpperCase() === nameInput.toUpperCase() || c.id.toUpperCase() === nameInput.toUpperCase() || c.name.toUpperCase() === nameInput.toUpperCase());
       
       if (!coinMatch) {
         return await interaction.editReply(`❌ ไม่พบข้อมูลเหรียญชื่อ **${nameInput}** ในไฟล์ระบบ ลองตรวจสอบตัวสะกดอีกครั้งค่ะ`);
       }
 
-      // 4. ดึงข้อมูลเหรียญรายตัวจาก CoinGecko Web API (ส่งคีย์ผ่าน Header)
       const response = await axios.get(`${BASE_URL}/coins/${coinMatch.id}`, {
         headers: {
           'x-cg-demo-api-key': COINGECKO_API_KEY
