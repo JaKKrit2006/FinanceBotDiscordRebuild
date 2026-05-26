@@ -150,6 +150,8 @@ async function drawCandlestickChart(ohlcData, opts = {}) {
   const last     = ohlcData[n - 1];
   const currentY = toY(last.close);
 
+  //console.log(ohlcData);
+
   ctx.save();
   ctx.strokeStyle = C.priceLine;
   ctx.lineWidth   = 1.5;

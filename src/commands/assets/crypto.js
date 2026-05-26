@@ -89,10 +89,32 @@ module.exports = {
           days: 30
         }
       });
+      //console.log(chartResponse);
+      const chartData = chartResponse.data;
+      const result = chartData.map(item => {
+        const date1 = new Date(item[0]);
+        return {
+          date:  date1.toISOString(),
+          open: item[1],
+          high: item[2],
+          low: item[3],
+          close: item[4]
+        };
+      });
+
+      //console.log(result);
 
       const cryptoData = response.data;
       const cryptoSymbol = cryptoData.symbol.toUpperCase();
       const cryptoMarketData = cryptoData.market_data;
+
+      const pngBuffer = await drawCandlestickChart(result, {
+        symbol   : coinMatch.id,
+        timeframe: "4H",
+        url_image: cryptoData.image.large,
+      });
+
+      const attachment = new AttachmentBuilder(pngBuffer, { name: 'image.png' });
 
       const iconURL = `https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png`;
       const colors = await getColorImage(cryptoData.image.large) || '#000000';
@@ -105,6 +127,7 @@ module.exports = {
         .setTitle(cryptoSymbol)
         .setColor(colors)
         .setThumbnail(cryptoData.image.large)
+        .setImage('attachment://image.png')
         .setFooter({
           text: `Opening | 🗓️ ${new Date().toLocaleString('en-GB', {
               day: 'numeric', month: 'short', year: 'numeric'
@@ -187,7 +210,7 @@ module.exports = {
       await interaction.editReply({
         content: `${contentList[Math.floor(Math.random() * contentList.length)]} ${feelingEmojiList[Math.floor(Math.random() * feelingEmojiList.length)]}`,
         embeds: [ cryptoEmbed ],
-        // files: [attachment]
+        files: [attachment]
       });
 
     } catch (error) {
