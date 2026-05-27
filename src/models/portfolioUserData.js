@@ -10,6 +10,11 @@ const portfolioData = new Schema({
     type: String,
     require: true
   },
+
+  userAvatarUrl: {
+    type: String,
+    default: null
+  },
   
   ranks: {
     type: String,
@@ -19,6 +24,16 @@ const portfolioData = new Schema({
   time: {
     type: Date,
     default: Date.now
+  },
+
+  xp: {
+    type: Number,
+    default: 0
+  },
+
+  wealth: {
+    type: Number,
+    default: 1000
   },
 
   balance: {

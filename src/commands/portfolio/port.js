@@ -412,6 +412,9 @@ module.exports = {
             userId: interaction.user.id,
             ranks: 'Newbie',
             time: new Date(),
+            xp: 0,
+            wealth: 1000,
+            userAvatarUrl: interaction.user.displayAvatarURL() || null,
             balance: {
               money: {
                 cash: 1000, // starter money
@@ -480,11 +483,12 @@ module.exports = {
 
         let upData = await portData.findOne(query);
 
-        // assets array data
+        // assets array data 
         const stockArr = combineValueArray(upData.balance.assets.stock);
         const cryptoArr = combineValueArray(upData.balance.assets.crypto);
         const goldArr = combineValueArray(upData.balance.assets.gold);
         
+        // update data after combine
         await portData.updateOne(query, { $set: {
           'balance.assets.stock': stockArr,
           'balance.assets.crypto': cryptoArr,
@@ -492,6 +496,8 @@ module.exports = {
         }})
 
         upData = await portData.findOne(query);
+
+        const totalWealth = upData.wealth;
 
         let stockSymbol = await getAllSymbol(upData, 'stock');
         let cryptoSymbol = await getAllSymbol(upData, 'crypto');
@@ -672,6 +678,11 @@ module.exports = {
 
         const diff = (userBalance - totalCost).toFixed(2);
         const diffPercent = (((userBalance/totalCost) - 1) * 100).toFixed(2);
+
+        // update wealth data after calculate balance
+        await portData.updateOne(query, { $set: {
+          'wealth': userBalance,
+        }})
 
         // TODO Ui for user status
         // console.log(interaction)

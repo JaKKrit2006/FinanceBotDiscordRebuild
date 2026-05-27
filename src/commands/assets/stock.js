@@ -255,7 +255,7 @@ module.exports = {
       };
       const chartResult = await yahooFinance.chart(ticker, queryOptions);
       const chartData = chartResult.quotes;
-      console.log(chartData);
+      //console.log(chartData);
 
       const pngBuffer = await drawCandlestickChart(chartData, {
         symbol   : ticker,
