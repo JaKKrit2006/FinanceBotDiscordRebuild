@@ -128,13 +128,11 @@ async function addAssetData(interaction, query, sub, symbol, cost=0, volume=0) {
       await interaction.editReply(`Sorry, your money is not enough. (Your Balance: ${money}฿)`);
       return;
     }
-
-    if (cost < 1) {
+    else if (cost < 1) {
       await interaction.editReply(`Sorry, you can't set cost below 1`);
       return;
     }
-
-    if (volume <= 0) {
+    else if (volume <= 0) {
       await interaction.editReply(`Sorry, you can't set volume to 0 or below`);
       return;
     }
@@ -374,6 +372,8 @@ module.exports = {
       const basePayload = {
         ranks: 'Newbie',
         time: new Date(),
+        xp: 0,
+        wealth: 1000,
         balance: {
           
           money: {
