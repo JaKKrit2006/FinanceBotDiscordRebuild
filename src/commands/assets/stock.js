@@ -4,11 +4,9 @@
 
 const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions, AttachmentBuilder } = require('discord.js');
 const { allFields } = require('../../misc/allQuoteFields');
-const { drawCandlestickChart } = require('../../misc/drawGraph');
+const { generateChartBuffer } = require('../../misc/chartCapture');
 const { Vibrant } = require("node-vibrant/node");
 
-const { subDays, format } = require('date-fns');
-const { createCanvas, loadImage } = require('canvas');
 const finnhub = require('finnhub');
 const axios = require('axios');
 const sharp = require('sharp');
@@ -25,10 +23,10 @@ const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).
 
 // function zone
 function formatNumber(num) {
-  if (num >= 1e12) return (num / 1e12).toFixed(2) + "T"; // ล้านล้าน
-  if (num >= 1e9)  return (num / 1e9).toFixed(2) + "B";  // พันล้าน
-  if (num >= 1e6)  return (num / 1e6).toFixed(2) + "M";  // ล้าน
-  if (num >= 1e3)  return (num / 1e3).toFixed(2) + "K";  // พัน
+  if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
+  if (num >= 1e9)  return (num / 1e9).toFixed(2) + "B"; 
+  if (num >= 1e6)  return (num / 1e6).toFixed(2) + "M";
+  if (num >= 1e3)  return (num / 1e3).toFixed(2) + "K";
   return num.toString();
 }
 
@@ -36,19 +34,15 @@ async function getColorImage(imageUrl) {
   try {
     // load image to buffer
     const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-
     // convert PNG buffer before feed to Vibrant
     const pngBuffer = await sharp(response.data).png().toBuffer();
     const palette = await Vibrant.from(pngBuffer).getPalette();
-
     // debug
     //console.log(palette);
-
     const rgb = palette.LightVibrant._rgb;
     const hex = '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
     
     return hex || "#000000";
-    
   } catch (err) {
     console.error(err);
     return "#000000";
@@ -62,8 +56,6 @@ function formatToGMT7(dateStr) {
   }
 
   const utcDate = new Date(dateStr);
-  // const gmt7Date = new Date(utcDate.getTime() + 7 * 60 * 60 * 1000);
-
   const timeStr = utcDate.toLocaleTimeString('en-US', {
     hour12: true,
     hour: 'numeric',
@@ -117,7 +109,6 @@ module.exports = {
       const companyProfile = await promisifiedCompanyProfile({ 'symbol': ticker }) || null;
       // Get colors embed
       const embedColors = await getColorImage(companyProfile.logo);
-
       // Earning Data
       if (isEarning) {
 
@@ -245,30 +236,6 @@ module.exports = {
         fields: allFields.fields
       });
 
-      const today = new Date();
-      const pastDate = subDays(today, 90);
-      const formattedDate = format(pastDate, 'yyyy-MM-dd');
-
-      const queryOptions = {
-        period1: formattedDate, // YYYY-MM-DD
-        interval: '1d',
-      };
-      const chartResult = await yahooFinance.chart(ticker, queryOptions);
-      const chartData = chartResult.quotes;
-      //console.log(chartData);
-
-      const pngBuffer = await drawCandlestickChart(chartData, {
-        symbol   : ticker,
-        timeframe: "1D",
-        url_image: companyProfile.logo,
-      });
-
-      const attachment = new AttachmentBuilder(pngBuffer, { name: 'image.png' });
-
-      // debug
-      //console.log(quote);
-      //console.log(companyProfile);
-
       // Stock Data 
       const emojiList = {
         bull: ':small_red_triangle:',
@@ -337,6 +304,10 @@ module.exports = {
         marketSessionText = 'Closed';
       }
 
+      // create chart buffer 
+      const chartBuffer = await generateChartBuffer(ticker);
+      const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+
       // Create embed message
       const stockEmbed = new EmbedBuilder()
         .setAuthor({
@@ -346,8 +317,7 @@ module.exports = {
         .setTitle(`**${ticker}**`)
         .setColor(embedColors)
         .setThumbnail(companyProfile.logo || null)
-        .setImage('attachment://image.png')
-        // .setURL(`https://finance.yahoo.com/quote/${ticker}/`)
+        .setImage('attachment://chart.png')
         .setFooter({
           text: `${marketSessionText || 'Closed'} | 🗓️ ${new Date().toLocaleString('en-GB', {
               day: 'numeric', month: 'short', year: 'numeric'
@@ -422,7 +392,7 @@ module.exports = {
       await interaction.editReply({
         content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
         embeds: [ stockEmbed ],
-        files: [attachment]
+        files: [ attachment ]
       });
     }
     

@@ -18,10 +18,10 @@ module.exports = {
 
     for (const userData of data) {
         const payload = {
-            userName: userData.userName,
-            userId: userData.userId,
-            userAvatarUrl: userData.userAvatarUrl,
-            wealth: userData.wealth
+          userName: userData.userName,
+          userId: userData.userId,
+          userAvatarUrl: userData.userAvatarUrl,
+          wealth: userData.wealth
         }
         const userWealth = userData.wealth;
         wealthList.push(payload);

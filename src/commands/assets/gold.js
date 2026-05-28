@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const axios = require('axios');
+const { generateChartBuffer } = require('../../misc/chartCapture');
 
-const GOLD_API_KEY = process.env.GOLD_API; // Replace this with your actual API key
+const GOLD_API_KEY = process.env.GOLD_API;
 const THAI_GOLD_API = 'https://api.chnwt.dev/thai-gold-api/latest';
 const SPOT_GOLD_API = 'https://www.goldapi.io/api/XAU/USD';
 const goldImageUrl = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/gold.gif';
@@ -14,7 +15,6 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      // ดึงข้อมูลพร้อมกันทั้งสอง API
       const [spotRes, thaiRes] = await Promise.all([
         axios.get(SPOT_GOLD_API, {
           headers: {
@@ -62,6 +62,9 @@ module.exports = {
       const dateStr = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       const timeStr = new Date().toLocaleString('en-US', { hour12: true, timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
 
+      const chartBuffer = await generateChartBuffer(`OANDA:XAUUSD`);
+      const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+
       // ── Build Embed ──────────────────────────────────────
       const goldEmbed = new EmbedBuilder()
         .setAuthor({
@@ -71,6 +74,7 @@ module.exports = {
         .setTitle('🌟 Gold Price Dashboard')
         .setColor('Gold')
         .setThumbnail(goldImageUrl)
+        .setImage('attachment://chart.png')
         .setFooter({
           text: `${marketSessionText} | 🗓️ ${dateStr}, ${timeStr} (GMT+7)`,
           iconURL: iconURL || null
@@ -137,7 +141,7 @@ module.exports = {
           }
         );
 
-      await interaction.editReply({ embeds: [goldEmbed] });
+      await interaction.editReply({ embeds: [goldEmbed], files: [attachment] });
 
     } catch (error) {
       console.error(error);

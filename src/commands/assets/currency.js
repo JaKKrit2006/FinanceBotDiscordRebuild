@@ -1,10 +1,10 @@
 /*
   1 Day to finish Nov/9/2025 - Updated to Stable Currency API (Fixed Yahoo Finance 429 & Crumb Error)
 */
-const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const axios = require('axios');
+const { generateChartBuffer } = require('../../misc/chartCapture');
 
-// ข้อมูลชื่อเต็มและธงของแต่ละสกุลเงินสำหรับความสวยงาม
 const currencyDetails = {
   USD: { name: 'US Dollar', flag: '🇺🇸' },
   EUR: { name: 'Euro', flag: '🇪🇺' },
@@ -67,10 +67,8 @@ module.exports = {
       if (subcommand === 'list') {
         const symbol = interaction.options.getString('symbol').toUpperCase();
 
-        // รายชื่อสกุลเงิน Top 10 ของโลกที่จะนำมาเปรียบเทียบ
         const targetCurrencies = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'CHF', 'AUD', 'CAD', 'HKD', 'SGD'];
 
-        // ยิงคำขอไปยัง Open Currency API (ดึงฐานข้อมูลราคาอ้างอิงจากสกุลเงินตัวหลักของผู้ใช้)
         const response = await axios.get(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${symbol.toLowerCase()}.json`)
           .catch(() => null);
 
@@ -85,25 +83,22 @@ module.exports = {
         let marketPriceListText = ``;
 
         const now = new Date();
-      const day = now.getUTCDay(); // 0 = อาทิตย์, 6 = เสาร์
-      const hour = now.getUTCHours();
-      
-      // ตลาดทองคำปิดช่วงวันเสาร์-อาทิตย์ และปิดล้างระบบสั้นๆ ช่วงเช้ามืดเวลานิวยอร์ก
-      let marketSessionText = 'Opening';
-      let iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png';
+        const day = now.getUTCDay();
+        const hour = now.getUTCHours();
+        
+        let marketSessionText = 'Opening';
+        let iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png';
 
-      if (day === 0 || day === 6 || (day === 5 && hour >= 21) || (day === 1 && hour < 22)) {
-        marketSessionText = 'Closed';
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/close-market.png';
-      }
+        if (day === 0 || day === 6 || (day === 5 && hour >= 21) || (day === 1 && hour < 22)) {
+          marketSessionText = 'Closed';
+          iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/close-market.png';
+        }
 
         targetCurrencies.forEach((target) => {
-          // หากสกุลเงินเป้าหมายตรงกับสกุลเงินหลักที่กรอก ให้เปลี่ยนไปเทียบกับ THB แทนเพื่อความสมบูรณ์ของข้อมูล 10 ตัว
           const finalTarget = (target === symbol) ? 'THB' : target;
           const rateValue = rates[finalTarget.toLowerCase()];
 
           if (rateValue) {
-            // คำนวณหาค่าอัตราแลกเปลี่ยนกลับ (1 ค่าเงินต่างประเทศ = เท่าไหร่ในสกุลเงินหลัก)
             const invertedRate = 1 / rateValue;
             
             const mainFlag = currencyDetails[symbol]?.flag || '🏳️';
@@ -164,8 +159,6 @@ module.exports = {
         if (mainPair === subPair) {
           return await interaction.editReply(`Sorry, main and sub are the same pair please try again.`);
         }
-
-        // ยิงคำขอเรียกข้อมูลสกุลเงินหลัก
         const response = await axios.get(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${mainPair.toLowerCase()}.json`)
           .catch(() => null);
 
@@ -185,6 +178,9 @@ module.exports = {
         const subFlag = currencyDetails[subPair]?.flag || '🏳️';
         const iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png';
 
+        const chartBuffer = await generateChartBuffer(`OANDA:${mainPair}${subPair}`);
+        const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+
         const currecncyEmbed = new EmbedBuilder()
           .setAuthor({
             name: `Request by ${interaction.user.username}`,
@@ -193,6 +189,7 @@ module.exports = {
           .setTitle(`💱 Currency Pair: ${mainPair} / ${subPair}`)
           .setColor('Blue')
           .setDescription(`อัตราแลกเปลี่ยนอัปเดต ณ วันที่: \`${updateDate}\``)
+          .setImage('attachment://chart.png')
           .setFooter({
             text: `Currency Market | 🗓️ ${new Date().toLocaleString('en-GB', {
                 day: 'numeric', month: 'short', year: 'numeric'
@@ -224,7 +221,8 @@ module.exports = {
         
         await interaction.editReply({
           content: `${contentList[Math.floor(Math.random() * contentList.length)]} ${feelingEmojiList[Math.floor(Math.random() * feelingEmojiList.length)]}`,
-          embeds: [ currecncyEmbed ]
+          embeds: [ currecncyEmbed ],
+          files: [attachment]
         });
       }
     }
