@@ -7,6 +7,7 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
   MessageFlags, SeparatorSpacingSize, AttachmentBuilder, FileBuilder, MediaGalleryBuilder,
   MediaGalleryItemBuilder, ThumbnailBuilder,  ActionRowBuilder, StringSelectMenuBuilder,
  } = require('discord.js');
+
 const { allFields } = require('../../misc/allQuoteFields');
 const { generateChartBuffer } = require('../../misc/chartCapture');
 const { Vibrant } = require("node-vibrant/node");
@@ -72,7 +73,7 @@ function formatToGMT7(dateStr) {
 // start module
 module.exports = {
   name: 'stock',
-  description: 'Get (US) stock info/earning for a given ticker symbol. (ETF can use but may lead you to error)',
+  description: 'Get (US) stock info for a given ticker symbol. (ETF can use but may lead you to error)',
   // devOnly: Boolean,
   // testOnly: true,
   // options: Object[],
