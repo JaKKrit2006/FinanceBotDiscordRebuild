@@ -46,7 +46,7 @@ async function generateChartBuffer(symbol = 'AAPL') {
         const browser = await puppeteer.launch({ headless: "new" });
         const page = await browser.newPage();
         
-        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setViewport({ width: 1280, height: 720 });
         
         await page.goto(`http://localhost:${PORT}?symbol=${encodeURIComponent(symbol)}`, { 
             waitUntil: 'networkidle2' 

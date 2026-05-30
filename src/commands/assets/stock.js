@@ -2,7 +2,11 @@
   It took me 3 Days to make this fucking noob things - fetch Stock data and Earning data Nov/5/2025 - Nov/7/2025
 */
 
-const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions, AttachmentBuilder } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBuilder,
+  TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, SectionBuilder,
+  MessageFlags, SeparatorSpacingSize, AttachmentBuilder, FileBuilder, MediaGalleryBuilder,
+  MediaGalleryItemBuilder, ThumbnailBuilder,  ActionRowBuilder, StringSelectMenuBuilder,
+ } = require('discord.js');
 const { allFields } = require('../../misc/allQuoteFields');
 const { generateChartBuffer } = require('../../misc/chartCapture');
 const { Vibrant } = require("node-vibrant/node");
@@ -106,12 +110,17 @@ module.exports = {
 
     try {
       // Promisify
-      const companyProfile = await promisifiedCompanyProfile({ 'symbol': ticker }) || null;
+      const companyProfile = await promisifiedCompanyProfile({ 'symbol': ticker });
       // Get colors embed
       const embedColors = await getColorImage(companyProfile.logo);
+
+      // Fetch stock price data
+      const quote = await yahooFinance.quote(ticker, {
+        fields: allFields.fields
+      });
+
       // Earning Data
       if (isEarning) {
-
         const quote2 = await yahooFinance.quoteSummary(ticker, {
           modules: ['price', 'financialData', 'earnings', 'calendarEvents', 'incomeStatementHistoryQuarterly',
             'earningsTrend'
@@ -141,8 +150,8 @@ module.exports = {
         const previousRevQuater1 = financialsChart.quarterly.at(-2) || financialsChart.quarterly[financialsChart.quarterly - 2];
         const previousRevQuater2 = financialsChart.quarterly.at(-3) || financialsChart.quarterly[financialsChart.quarterly - 3];
 
-        const nextQuaterDate = formatToGMT7(earningsChart.earningsDate) || `No Deadline Yet.`;
-        const currentQuaterDate = formatToGMT7(incomeQuarterly[0].endDate) || `No Deadline Yet.`;
+        const nextQuaterDate = formatToGMT7(quote.earningsTimestampStart) || `No Deadline Yet.`;
+        const currentQuaterDate = formatToGMT7(quote.earningsTimestamp) || `No Deadline Yet.`;
 
         const earningEmbed = new EmbedBuilder()
           .setAuthor({
@@ -162,7 +171,7 @@ module.exports = {
           .setFields(
             {
               name: `Next (${nextQuaterEarning})`,
-              value: `:calendar_spiral: ${nextQuaterDate}`,
+              value: `:calendar_spiral: ${nextQuaterDate} (GMT+7)`,
             },
             {
               name: `EPS Est.`,
@@ -176,7 +185,7 @@ module.exports = {
             },
             {
               name: `Current (${currentQuaterEarning.date.slice(0, 2)} ${currentQuaterEarning.date.slice(2)})`, // example: '3Q 2025'
-              value: `:calendar_spiral: ≈ ${currentQuaterDate.slice(10)}`,
+              value: `:calendar_spiral: ${currentQuaterDate} (GMT+7)`,
             },
             {
               name: `EPS Act.`,
@@ -230,11 +239,8 @@ module.exports = {
       }
 
       // ------------------------------------------------------------------------------------------------------------
-
-      // Fetch stock price data
-      const quote = await yahooFinance.quote(ticker, {
-        fields: allFields.fields
-      });
+      // console.log("Debug quote:");
+      console.log(quote);
 
       // Stock Data 
       const emojiList = {
@@ -304,9 +310,15 @@ module.exports = {
         marketSessionText = 'Closed';
       }
 
-      // create chart buffer 
-      const chartBuffer = await generateChartBuffer(ticker);
+      // create chart buffer
+      let tickerForChart = ticker;
+      if (ticker.includes('-')) {
+        tickerForChart = ticker.replace('-', '.'); // for yahoo finance, example: BRK-B → BRK.B
+      }
+      const chartBuffer = await generateChartBuffer(tickerForChart);
       const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+
+      const stockContainer = new ContainerBuilder();
 
       // Create embed message
       const stockEmbed = new EmbedBuilder()
@@ -390,7 +402,7 @@ module.exports = {
 
 
       await interaction.editReply({
-        content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
+        // content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
         embeds: [ stockEmbed ],
         files: [ attachment ]
       });
