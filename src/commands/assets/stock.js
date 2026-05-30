@@ -25,15 +25,6 @@ const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 // Promisify Finnhub methods
 //const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
 
-// function zone
-function formatNumber(num) {
-  if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
-  if (num >= 1e9)  return (num / 1e9).toFixed(2) + "B"; 
-  if (num >= 1e6)  return (num / 1e6).toFixed(2) + "M";
-  if (num >= 1e3)  return (num / 1e3).toFixed(2) + "K";
-  return num.toString();
-}
-
 async function getColorImage(imageUrl) {
   try {
     // load image to buffer
@@ -106,76 +97,40 @@ module.exports = {
       const quote = await yahooFinance.quote(ticker, {
         fields: allFields.fields
       });
-      // ------------------------------------------------------------------------------------------------------------
       // console.log("Debug quote:");
       console.log(quote);
-
-      // Stock Data 
-      const emojiList = {
-        bull: ':small_red_triangle:',
-        bear: ':small_red_triangle_down:',
-        equal: ':heavy_equals_sign:',
+      if (!quote) {
+        return await interaction.editReply(`:x: There was no TICKER:**${ticker}** in the data system.`);
       }
 
-      // Change emoji compare price change
-      let marketEmoji = '';
-      if (quote.regularMarketChange > 0) {
-        marketEmoji = emojiList['bull'];
-      } else if (quote.regularMarketChange < 0) {
-        marketEmoji = emojiList['bear']; 
-      } else {
-        marketEmoji = emojiList['equal'];
-      }
-
-      // Make it to function soon...
       const marketSession = quote.marketState;
       let prePostEmoji = '';
-      let prePostPriceText = '';
-      let prePostChangeText = '';
-      let iconURL = '';
       let marketSessionText = '';
-
-      if (quote.hasPrePostMarketData) {
-        if (marketSession === 'POST') {
-          if (!quote.postMarketPrice) {
-            prePostEmoji = ':crescent_moon:';
-            prePostPriceText = `\n${prePostEmoji} N/A`;
-            prePostChangeText = `\nN/A`;
-          } else {
-            prePostEmoji = ':crescent_moon:';
-            prePostPriceText = `\n${prePostEmoji} ${quote.postMarketPrice.toFixed(2)}`;
-            prePostChangeText = `\n${quote.postMarketChange > 0 ? '+' : ''}${quote.postMarketChange.toFixed(2)} (${quote.postMarketChangePercent.toFixed(2)}%)`;
-          }
-        } else if (marketSession === 'PRE') {
-          if (!quote.preMarketPrice) {
-            prePostEmoji = ':sunny:';
-            prePostPriceText = `\n${prePostEmoji} N/A`;
-            prePostChangeText = `\nN/A`;
-          } else {
-            prePostEmoji = ':sunny:';
-            prePostPriceText = `\n${prePostEmoji} ${quote.preMarketPrice.toFixed(2)}`;
-            prePostChangeText = `\n${quote.preMarketChange > 0 ? '+' : ''}${quote.preMarketChange.toFixed(2)} (${quote.preMarketChangePercent.toFixed(2)}%)`;
-          }
-        }
-      } else {
-        prePostEmoji = '';
-        prePostPriceText = '';
-        prePostChangeText = '';
-      }
 
       // Icon for footer
       if (marketSession === 'PRE') {
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/pre-market.png'; // Pre-market icon
+        prePostEmoji = ':sunny:'
         marketSessionText = 'Pre-Market';
       } else if (marketSession === 'POST') {
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/post-market.png'; // Post-market icon
+        prePostEmoji = ':last_quarter_moon_with_face:'
         marketSessionText = 'Post-Market';
       } else if (marketSession === 'REGULAR') {
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png'; // Open-Market icon
+        prePostEmoji = ':white_check_mark:'
         marketSessionText = 'Opening';
       } else {
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/close-market.png'; // Closed-Market icon
+        prePostEmoji = ':x:'
         marketSessionText = 'Closed';
+      }
+
+      //NasdaqGS
+      //NYSE
+      //NYSEArca
+
+      let bannerExchange = '';
+      if (quote.fullExchangeName === 'NasdaqGS') {
+        bannerExchange = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/default/NASDAQ_1.png';
+      } else {
+        bannerExchange = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/default/NYSE.png'
       }
 
       // create chart buffer
@@ -191,10 +146,18 @@ module.exports = {
 
       // add banner to the top of container
       const banner1 = new MediaGalleryItemBuilder()
-        .setURL("https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/NASDAQ.png");
+        .setURL(bannerExchange);
       const topBanner = new MediaGalleryBuilder()
         .addItems(banner1);
       stockContainer.addMediaGalleryComponents(topBanner);
+
+      const textHead = new TextDisplayBuilder()
+        .setContent(`## Asset Info!\n:bar_chart: **${ticker} - ${quote.longName}**\n\n`
+          + `**Source**\n- :link: [TradingView](https://www.tradingview.com/)`);
+      stockContainer.addTextDisplayComponents(textHead);
+
+      const separator1 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
+      stockContainer.addSeparatorComponents(separator1);
 
       const media1 = new MediaGalleryBuilder()
         .addItems(
@@ -204,90 +167,28 @@ module.exports = {
       stockContainer.addMediaGalleryComponents(media1);
 
       const footerText = new TextDisplayBuilder()
-        .setContent(`\n🗓️ ${new Date().toLocaleString('en-GB', {
+        .setContent(`\n${prePostEmoji} **${marketSessionText}** | 🗓️ ${new Date().toLocaleString('en-GB', {
               day: 'numeric', month: 'short', year: 'numeric'
             })}, ${new Date().toLocaleString('en-US',
             { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
           )} (GMT+7)`);
       stockContainer.addTextDisplayComponents(footerText);
       
-      const separator1 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
-      stockContainer.addSeparatorComponents(separator1);
+      const separator2 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
+      stockContainer.addSeparatorComponents(separator2);
 
       const requestText = new TextDisplayBuilder()
         .setContent(`-# Request by ${interaction.user.username}`)
-      stockContainer.addTextDisplayComponents(requestText);
+      const button1 = new ButtonBuilder()
+				.setLabel('View on TradingView')
+				.setStyle(ButtonStyle.Link)
+				.setURL(`https://www.tradingview.com/symbols/${tickerForChart}/`);
+      const bottomSection = new SectionBuilder()
+        .addTextDisplayComponents(requestText)
+        .setButtonAccessory(button1);
+      stockContainer.addSectionComponents(bottomSection);
 
-      // Create embed message
       /*
-      const stockEmbed = new EmbedBuilder()
-        .setAuthor({
-          name: `Request by ${interaction.user.username}`,
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setTitle(`**${ticker}**`)
-        .setColor(embedColors)
-        .setThumbnail(companyProfile.logo || null)
-        .setImage('attachment://chart.png')
-        .setFooter({
-          text: `${marketSessionText || 'Closed'} | 🗓️ ${new Date().toLocaleString('en-GB', {
-              day: 'numeric', month: 'short', year: 'numeric'
-            })}, ${new Date().toLocaleString('en-US',
-            { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
-          )} (GMT+7)`,
-          iconURL: iconURL || null,
-        })
-        .setFields(
-          {
-            name: `:classical_building: Company`,
-            value: `${quote.shortName || 'N/A'}`,
-          },
-          {
-            name: `${marketEmoji} Market Price`,
-            value: `${quote.regularMarketPrice.toFixed(2)}${prePostPriceText}`,
-            inline: true
-          },
-          {
-            name: `Change`,
-            value: `${quote.regularMarketChange > 0 ? '+' : ''}${quote.regularMarketChange.toFixed(2)} (${quote.regularMarketChangePercent.toFixed(2)}%)${prePostChangeText}`,
-            inline: true,
-          },
-          {
-            name: `High/Low`,
-            value: `${quote.regularMarketDayHigh.toFixed(2)}/${quote.regularMarketDayLow.toFixed(2)}`,
-            inline: true,
-          },
-          {
-            name: `Volume`,
-            value: `${formatNumber(quote.regularMarketVolume)}`,
-            inline: true,
-          },
-          {
-            name: `Marketcap`,
-            value: `${formatNumber(quote.marketCap)}`,
-            inline: true,
-          },
-          {
-            name: `Dividend Yield`,
-            value: `${quote.dividendYield ? `${quote.dividendYield}%` : 'No pay dividend.'}`,
-            inline: true,
-          },
-          {
-            name: `Valuation`,
-            value: `P/E: ${quote.trailingPE ? quote.trailingPE.toFixed(2) : '-'} | P/B: ${quote.priceToBook.toFixed(2) || '-'} | BVPS: ${quote.bookValue.toFixed(2) || '-'}`,
-          },
-          {
-            name: `Currency`,
-            value: `:flag_${quote.region.toLowerCase()}: ${quote.currency}`,
-            inline: true
-          },
-          {
-            name: `Source`,
-            value: `:link: [__YahooFinance__](https://finance.yahoo.com/quote/${ticker}/)`,
-            inline: true
-          }
-        )
-
       feelingEmojiList = [
         ':wink:', ':yum:', ':relaxed:', ':smiling_face_with_3_hearts:', ':blush:'
       ];

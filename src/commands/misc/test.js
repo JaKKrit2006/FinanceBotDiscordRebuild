@@ -122,11 +122,17 @@ module.exports = {
 
 			const text4 = new TextDisplayBuilder()
 				.setContent('This is a something');
+			const text5 = new TextDisplayBuilder()
+				.setContent('This is a something');
+			const text6 = new TextDisplayBuilder()
+				.setContent('This is a something');
 			const section3 = new SectionBuilder()
 				.addTextDisplayComponents(text4)
+				.addTextDisplayComponents(text5)
+				.addTextDisplayComponents(text6)
 				.setThumbnailAccessory(
 					new ThumbnailBuilder()
-						.setURL('https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_happy1.gif')
+						.setURL(interaction.user.displayAvatarURL({ extension: 'png', size: 512 }))
 				);
 			container.addSectionComponents(section3);
 
