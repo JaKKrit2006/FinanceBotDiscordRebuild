@@ -191,7 +191,7 @@ module.exports = {
 
       // add banner to the top of container
       const banner1 = new MediaGalleryItemBuilder()
-        .setURL("https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/yomi_900_300.gif");
+        .setURL("https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/NASDAQ.png");
       const topBanner = new MediaGalleryBuilder()
         .addItems(banner1);
       stockContainer.addMediaGalleryComponents(topBanner);
