@@ -20,10 +20,10 @@ const util = require('util');
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API)
+//const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API)
 
 // Promisify Finnhub methods
-const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
+//const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
 
 // function zone
 function formatNumber(num) {
@@ -93,12 +93,6 @@ module.exports = {
       description: `The ticker symbol of the stock to get info. (example: NVDA, META, AAPL)`,
       type: ApplicationCommandOptionType.String,
       required: true,
-    },
-    {
-      name: 'earning',
-      description: 'Get earning information for the stock. (True/False)',
-      type: ApplicationCommandOptionType.Boolean,
-      required: false,
     }
   ],
 
@@ -106,138 +100,12 @@ module.exports = {
     await interaction.deferReply();
 
     const ticker = interaction.options.getString('ticker').toUpperCase();
-    const isEarning = interaction.options.getBoolean('earning') || false;
 
     try {
-      // Promisify
-      const companyProfile = await promisifiedCompanyProfile({ 'symbol': ticker });
-      // Get colors embed
-      const embedColors = await getColorImage(companyProfile.logo);
-
       // Fetch stock price data
       const quote = await yahooFinance.quote(ticker, {
         fields: allFields.fields
       });
-
-      // Earning Data
-      if (isEarning) {
-        const quote2 = await yahooFinance.quoteSummary(ticker, {
-          modules: ['price', 'financialData', 'earnings', 'calendarEvents', 'incomeStatementHistoryQuarterly',
-            'earningsTrend'
-          ]
-        });
-
-        // debug
-        // console.log(quote2.earningsTrend.trend) // est eps/revenue for 1 year
-        // console.log(quote2.incomeStatementHistoryQuarterly.incomeStatementHistory); // revenue
-        // console.log(quote2.earnings.financialsChart); // eps
-        // console.log(quote2.earnings.earningsChart);
-        // console.log(quote2.calendarEvents);
-
-        const financialsChart = quote2.earnings.financialsChart;
-        const earningsChart = quote2.earnings.earningsChart;
-        const calendarEvents = quote2.calendarEvents;
-        const incomeQuarterly = quote2.incomeStatementHistoryQuarterly.incomeStatementHistory;
-        const estTrend = quote2.earningsTrend.trend;
-
-        const currentQuaterEarning = financialsChart.quarterly.at(-1) || financialsChart.quarterly[financialsChart.quarterly.length - 1];
-        const nextQuaterEarning = `${earningsChart.currentQuarterEstimateDate} ${earningsChart.currentQuarterEstimateYear}`;
-        const currentEps = earningsChart.quarterly.at(-1) || earningsChart.quarterly[earningsChart.quarterly.length - 1];
-        const estAllYear = estTrend.find(item => item.period === '0y');
-
-        const previousEpsQuater1 = earningsChart.quarterly.at(-2) || earningsChart.quarterly[earningsChart.quarterly - 2];
-        const previousEpsQuater2 = earningsChart.quarterly.at(-3) || earningsChart.quarterly[earningsChart.quarterly - 3];
-        const previousRevQuater1 = financialsChart.quarterly.at(-2) || financialsChart.quarterly[financialsChart.quarterly - 2];
-        const previousRevQuater2 = financialsChart.quarterly.at(-3) || financialsChart.quarterly[financialsChart.quarterly - 3];
-
-        const nextQuaterDate = formatToGMT7(quote.earningsTimestampStart) || `No Deadline Yet.`;
-        const currentQuaterDate = formatToGMT7(quote.earningsTimestamp) || `No Deadline Yet.`;
-
-        const earningEmbed = new EmbedBuilder()
-          .setAuthor({
-            name: `Request by ${interaction.user.username}`,
-            iconURL: interaction.user.displayAvatarURL(),
-          })
-          .setTitle(`Earning of ${ticker}`)
-          .setThumbnail(companyProfile.logo || null)
-          .setColor(embedColors)
-          .setFooter({
-            text: `🗓️ ${new Date().toLocaleString('en-GB', {
-                day: 'numeric', month: 'short', year: 'numeric'
-              })}, ${new Date().toLocaleString('en-US',
-              { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
-            )} (GMT+7)`
-          })
-          .setFields(
-            {
-              name: `Next (${nextQuaterEarning})`,
-              value: `:calendar_spiral: ${nextQuaterDate} (GMT+7)`,
-            },
-            {
-              name: `EPS Est.`,
-              value: `${calendarEvents.earnings.earningsAverage.toFixed(2) || `N/A`}\n≈ ${estAllYear.earningsEstimate.avg.toFixed(2) || `N/A`} (Ann. ${new Date().getFullYear()})`,
-              inline: true
-            },
-            {
-              name: `Revenue Est.`,
-              value: `${formatNumber(calendarEvents.earnings.revenueAverage) || `N/A`}\n≈ ${formatNumber(estAllYear.revenueEstimate.avg) || `N/A`} (Ann. ${new Date().getFullYear()})`,
-              inline: true
-            },
-            {
-              name: `Current (${currentQuaterEarning.date.slice(0, 2)} ${currentQuaterEarning.date.slice(2)})`, // example: '3Q 2025'
-              value: `:calendar_spiral: ${currentQuaterDate} (GMT+7)`,
-            },
-            {
-              name: `EPS Act.`,
-              value: `${currentEps.actual.toFixed(2) || `N/A`} (est. ${currentEps.estimate.toFixed(2) || `N/A`})`,
-              inline: true
-            },
-            {
-              name: `Revenue Act.`,
-              value: `${formatNumber(currentQuaterEarning.revenue) || `N/A`}`,
-              inline: true
-            },
-            {
-              name: `Surprise (EPS)`,
-              value: `${Number(currentEps.surprisePct) >= 0 ? `:small_red_triangle:` : `:small_red_triangle_down:`} ${currentEps.surprisePct || `N/A`}%`,
-              inline: true
-            },
-            {
-              name: `:leftwards_arrow_with_hook: Previous`,
-              value: `(${previousEpsQuater1.date.slice(0, 2)} ${previousEpsQuater1.date.slice(2)}) eps: ${previousEpsQuater1.actual || `N/A`} revenue: ${formatNumber(previousRevQuater1.revenue || `N/A`)}\n(${previousEpsQuater2.date.slice(0, 2)} ${previousEpsQuater2.date.slice(2)}) eps: ${previousEpsQuater2.actual || `N/A`} revenue: ${formatNumber(previousRevQuater2.revenue || `N/A`)}`,
-            },
-            {
-              name: `Currency`,
-              value: `:flag_us: ${quote2.price.currency || `N/A`}`,
-              inline: true
-            },
-            {
-            name: `Source`,
-            value: `:link: [__YahooFinance__](https://finance.yahoo.com/quote/${ticker}/)`,
-            inline: true
-          }
-          );
-
-        feelingEmojiList = [
-        ':wink:', ':yum:', ':relaxed:', ':smiling_face_with_3_hearts:', ':blush:'
-        ];
-
-        contentList = [
-          `ได้แล้วค่ะ ข้อมูลผลประกอบการของหุ้น **${ticker}** ยินดีที่ได้บริการค่ะ.`,
-          `นี่ค่ะ… ข้อมูลผลประกอบการหุ้น **${ticker}** ที่คุณขอ เป็นอย่างไรบ้างคะ? :heart: ผลประกอบการดีมั้ยคะ?…`,
-          `ได้แล้วนะคะ… ข้อมูลผลประกอบการหุ้น **${ticker}** พร้อมส่งมอบให้คุณแล้วค่ะ หวังว่าจะเป็นวันนี้ที่ดีของคุณนะ…`,
-          `ผลประกอบการของ **${ticker}** อยู่ตรงนี้แล้วค่ะ… 🌸 ขอให้คุณเจอแต่โอกาสที่สวยงามนะคะ…`,
-        ]
-
-
-        await interaction.editReply({
-          content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
-          embeds: [ earningEmbed ]
-        });
-
-        return;
-      }
-
       // ------------------------------------------------------------------------------------------------------------
       // console.log("Debug quote:");
       console.log(quote);
@@ -318,9 +186,40 @@ module.exports = {
       const chartBuffer = await generateChartBuffer(tickerForChart);
       const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
+      // create componentV2
       const stockContainer = new ContainerBuilder();
 
+      // add banner to the top of container
+      const banner1 = new MediaGalleryItemBuilder()
+        .setURL("https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/yomi_900_300.gif");
+      const topBanner = new MediaGalleryBuilder()
+        .addItems(banner1);
+      stockContainer.addMediaGalleryComponents(topBanner);
+
+      const media1 = new MediaGalleryBuilder()
+        .addItems(
+          new MediaGalleryItemBuilder()
+            .setURL('attachment://chart.png')
+        );
+      stockContainer.addMediaGalleryComponents(media1);
+
+      const footerText = new TextDisplayBuilder()
+        .setContent(`\n🗓️ ${new Date().toLocaleString('en-GB', {
+              day: 'numeric', month: 'short', year: 'numeric'
+            })}, ${new Date().toLocaleString('en-US',
+            { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
+          )} (GMT+7)`);
+      stockContainer.addTextDisplayComponents(footerText);
+      
+      const separator1 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
+      stockContainer.addSeparatorComponents(separator1);
+
+      const requestText = new TextDisplayBuilder()
+        .setContent(`-# Request by ${interaction.user.username}`)
+      stockContainer.addTextDisplayComponents(requestText);
+
       // Create embed message
+      /*
       const stockEmbed = new EmbedBuilder()
         .setAuthor({
           name: `Request by ${interaction.user.username}`,
@@ -398,12 +297,13 @@ module.exports = {
         `นี่ค่ะ… ข้อมูลหุ้น **${ticker}** ที่คุณขอ ฉันเก็บไว้ให้อย่างดีเลย :heart: อย่าลืมพักผ่อนบ้างนะคะ…`,
         `ได้แล้วนะคะ… ข้อมูลหุ้น **${ticker}** พร้อมส่งมอบให้คุณแล้วค่ะ หวังว่าจะช่วยให้วันนี้ของคุณงดงามยิ่งขึ้นนะ…`,
         `หุ้น **${ticker}** อยู่ตรงนี้แล้วค่ะ… 🌸 ขอให้คุณเจอแต่โอกาสที่สวยงามนะคะ…`,
-      ]
+      ]*/
 
 
       await interaction.editReply({
         // content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
-        embeds: [ stockEmbed ],
+        components: [stockContainer],
+        flags: MessageFlags.IsComponentsV2,
         files: [ attachment ]
       });
     }

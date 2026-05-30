@@ -1,93 +1,124 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradingView Dynamic Chart</title>
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #0F0F0F;
-        }
-        .widget-wrapper {
-            width: 100%;
-            height: 100vh;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingView Widgets</title>
+  <style>
+    body {
+      background: #0F0F0F;
+      margin: 0;
+      padding: 0px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .widget-wrapper {
+      width: 100%;
+    }
+    .chart-wrapper {
+      width: 100%;
+      height: 480px;
+    }
+  </style>
 </head>
 <body>
 
-<div class="widget-wrapper">
-    <div class="tradingview-widget-container" id="tv-widget-container" style="height:100%;width:100%">
-        <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-        <div class="tradingview-widget-copyright">
-            <a id="tv-copyright-link" href="https://www.tradingview.com/symbols/NASDAQ-AAPL/" rel="noopener nofollow" target="_blank">
-                <span class="blue-text" id="tv-symbol-text">AAPL stock chart</span>
-            </a> by TradingView
-        </div>
+  <div class="widget-wrapper">
+    <div class="tradingview-widget-container" id="tv-info-container">
+      <div class="tradingview-widget-container__widget"></div>
     </div>
+  </div>
+
+  <div class="chart-wrapper">
+    <div class="tradingview-widget-container" id="tv-overview-container" style="height: 100%;">
+      <div class="tradingview-widget-container__widget" style="height: 100%;"></div>
     </div>
+  </div>
 
 <script type="text/javascript">
-    // 1. ฟังก์ชันสำหรับดึงค่าจาก URL Parameter
     function getQueryParam(param) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(param);
     }
 
-    // 2. ดึงค่า symbol จาก URL (ถ้าไม่มีให้ใช้ 'NASDAQ:AAPL' เป็นค่าเริ่มต้น)
     let symbolFromUrl = getQueryParam('symbol');
     if (!symbolFromUrl) {
-        symbolFromUrl = 'NASDAQ:AAPL'; 
+        symbolFromUrl = 'NASDAQ:AAPL';
     } else {
-        // จัดการฟอร์แมตให้เป็นตัวพิมพ์ใหญ่ทั้งหมด
         symbolFromUrl = symbolFromUrl.toUpperCase();
     }
 
-    // 3. อัปเดตข้อความและลิงก์ลิขสิทธิ์ด้านล่างให้ตรงกับหุ้นที่เลือก
-    const cleanSymbol = symbolFromUrl.replace(':', '-');
-    document.getElementById('tv-copyright-link').href = `https://www.tradingview.com/symbols/${cleanSymbol}/`;
-    document.getElementById('tv-symbol-text').innerText = `${symbolFromUrl} chart`;
+    const symbolName = symbolFromUrl.split(':')[1] || symbolFromUrl;
 
-    // 4. สร้างการตั้งค่าโค้ด Widget แบบ Dynamic
-    const widgetConfig = {
-        "allow_symbol_change": true,
-        "calendar": false,
-        "details": false,
-        "hide_side_toolbar": true,
-        "hide_top_toolbar": false,
-        "hide_legend": false,
-        "hide_volume": false,
-        "hotlist": false,
-        "interval": "D",
+    const infoConfig = {
+        "symbol": symbolFromUrl,
+        "colorTheme": "dark",
+        "isTransparent": false,
         "locale": "en",
-        "save_image": true,
-        "style": "1",
-        "symbol": symbolFromUrl, // ใส่ค่าที่ดึงมาจาก URL ตรงนี้
-        "theme": "dark",
-        "timezone": "Etc/UTC",
-        "backgroundColor": "#0F0F0F",
-        "gridColor": "rgba(242, 242, 242, 0.06)",
-        "watchlist": [],
-        "withdateranges": false,
-        "compareSymbols": [],
-        "studies": [],
-        "autosize": true
+        "width": "100%"
     };
 
-    // 5. สร้าง Script Element และยัด Config เข้าไป เพื่อโหลด Widget ทำงาน
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify(widgetConfig);
+    const infoScript = document.createElement('script');
+    infoScript.type = 'text/javascript';
+    infoScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js';
+    infoScript.async = true;
+    infoScript.innerHTML = JSON.stringify(infoConfig);
+    document.getElementById('tv-info-container').appendChild(infoScript);
 
-    // ใส่ Script เข้าไปในคอนเทนเนอร์ของ TradingView
-    document.getElementById('tv-widget-container').appendChild(script);
+    const overviewConfig = {
+        "lineWidth": 2,
+        "lineType": 0,
+        "chartType": "area",
+        "fontColor": "rgb(106, 109, 120)",
+        "gridLineColor": "rgba(242, 242, 242, 0.06)",
+        "volumeUpColor": "rgba(34, 171, 148, 0.5)",
+        "volumeDownColor": "rgba(247, 82, 95, 0.5)",
+        "backgroundColor": "#0F0F0F",
+        "widgetFontColor": "#DBDBDB",
+        "upColor": "#22ab94",
+        "downColor": "#f7525f",
+        "borderUpColor": "#22ab94",
+        "borderDownColor": "#f7525f",
+        "wickUpColor": "#22ab94",
+        "wickDownColor": "#f7525f",
+        "colorTheme": "dark",
+        "isTransparent": false,
+        "locale": "en",
+        "chartOnly": true,
+        "scalePosition": "right",
+        "scaleMode": "Normal",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+        "valuesTracking": "1",
+        "changeMode": "price-and-percent",
+        "symbols": [
+            [symbolName, symbolFromUrl + "|1D"]
+        ],
+        "dateRanges": [
+            "1d|1",
+            "1m|30",
+            "3m|60",
+            "12m|1D",
+            "60m|1W",
+            "all|1M"
+        ],
+        "fontSize": "10",
+        "headerFontSize": "medium",
+        "autosize": true,
+        "width": "100%",
+        "height": "100%",
+        "noTimeScale": false,
+        "hideDateRanges": false,
+        "hideMarketStatus": false,
+        "hideSymbolLogo": false
+    };
+
+    const overviewScript = document.createElement('script');
+    overviewScript.type = 'text/javascript';
+    overviewScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+    overviewScript.async = true;
+    overviewScript.innerHTML = JSON.stringify(overviewConfig);
+    document.getElementById('tv-overview-container').appendChild(overviewScript);
 </script>
 
 </body>
