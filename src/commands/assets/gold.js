@@ -1,4 +1,8 @@
-const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBuilder,
+  TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, SectionBuilder,
+  MessageFlags, SeparatorSpacingSize, AttachmentBuilder, FileBuilder, MediaGalleryBuilder,
+  MediaGalleryItemBuilder, ThumbnailBuilder,  ActionRowBuilder, StringSelectMenuBuilder,
+ } = require('discord.js');
 const axios = require('axios');
 const { generateChartBuffer } = require('../../misc/chartCapture');
 
@@ -9,7 +13,7 @@ const goldImageUrl = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/he
 
 module.exports = {
   name: 'gold',
-  description: 'Get gold spot price (XAU/USD) and Thai gold price.',
+  description: 'Get gold spot price (XAU/USD)',
 
   callback: async (client, interaction) => {
     await interaction.deferReply();
@@ -52,11 +56,11 @@ module.exports = {
       const hour = now.getUTCHours();
 
       let marketSessionText = 'Opening';
-      let iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/open-market.png';
+      let emojiIcon = ':white_check_mark:';
 
       if (day === 0 || day === 6 || (day === 5 && hour >= 21) || (day === 1 && hour < 22)) {
         marketSessionText = 'Closed';
-        iconURL = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/close-market.png';
+        emojiIcon = ':x:';
       }
 
       const dateStr = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -65,83 +69,58 @@ module.exports = {
       const chartBuffer = await generateChartBuffer(`OANDA:XAUUSD`);
       const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
-      // ── Build Embed ──────────────────────────────────────
-      const goldEmbed = new EmbedBuilder()
-        .setAuthor({
-          name: `Request by ${interaction.user.username}`,
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setTitle('🌟 Gold Price Dashboard')
-        .setColor('Gold')
-        .setThumbnail(goldImageUrl)
-        .setImage('attachment://chart.png')
-        .setFooter({
-          text: `${marketSessionText} | 🗓️ ${dateStr}, ${timeStr} (GMT+7)`,
-          iconURL: iconURL || null
-        })
+      // create componentV2
+      const goldContainer = new ContainerBuilder();
 
-        // ─── Section: Spot Gold ───
-        .addFields(
-          {
-            name: '──────────────────────',
-            value: '🌐 **Gold Spot (XAU/USD)**',
-            inline: false
-          },
-          {
-            name: ':moneybag: Current Price',
-            value: `$${spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-            inline: true
-          },
-          {
-            name: ':chart_with_upwards_trend: Open Price',
-            value: `$${spotOpen.toFixed(2)}`,
-            inline: true
-          },
-          {
-            name: `${spotChange >= 0 ? ':small_red_triangle:' : ':small_red_triangle_down:'} Change (1D)`,
-            value: `${spotChange >= 0 ? '+' : ''}${spotChange.toFixed(2)} (${spotChange >= 0 ? '+' : ''}${spotChangePct.toFixed(2)}%)`,
-            inline: true
-          },
-          {
-            name: ':bar_chart: High / Low (1D)',
-            value: `$${spotHigh.toFixed(2)} / $${spotLow.toFixed(2)}`,
-            inline: true
-          },
-          {
-            name: ':link: Source',
-            value: '[GoldAPI.io](https://www.goldapi.io/)',
-            inline: true
-          },
+      // add banner to the top of container
+      const banner1 = new MediaGalleryItemBuilder()
+        .setURL("https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/default/GOLD.png");
+      const topBanner = new MediaGalleryBuilder()
+        .addItems(banner1);
+      goldContainer.addMediaGalleryComponents(topBanner);
 
-          // ─── Section: Thai Gold ───
-          {
-            name: '──────────────────────',
-            value: '🇹🇭 **ราคาทองไทย (สมาคมค้าทองคำ)**',
-            inline: false
-          },
-          {
-            name: ':date: อัปเดตล่าสุด',
-            value: `${thaiUpdateDate}\n${thaiUpdateTime}`,
-            inline: false
-          },
-          {
-            name: '🪙 ทองแท่ง 96.5%',
-            value: `ซื้อ: ฿${barBuy}\nขาย: ฿${barSell}`,
-            inline: true
-          },
-          {
-            name: '💍 ทองรูปพรรณ',
-            value: `ซื้อ: ฿${ornBuy}\nขาย: ฿${ornSell}`,
-            inline: true
-          },
-          {
-            name: ':link: Source',
-            value: '[goldtraders.or.th](https://www.goldtraders.or.th/)',
-            inline: false
-          }
+      const textHead = new TextDisplayBuilder()
+        .setContent(`## Asset Info!\n:bar_chart: **XAUUSD - Gold Spot**\n\n`
+          + `**Source**\n- :link: [TradingView](https://www.tradingview.com/)`);
+      goldContainer.addTextDisplayComponents(textHead);
+
+      const separator1 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
+      goldContainer.addSeparatorComponents(separator1);
+
+      const media1 = new MediaGalleryBuilder()
+        .addItems(
+          new MediaGalleryItemBuilder()
+            .setURL('attachment://chart.png')
         );
+      goldContainer.addMediaGalleryComponents(media1);
 
-      await interaction.editReply({ embeds: [goldEmbed], files: [attachment] });
+      const footerText = new TextDisplayBuilder()
+        .setContent(`\n${emojiIcon} **${marketSessionText}** | 🗓️ ${new Date().toLocaleString('en-GB', {
+              day: 'numeric', month: 'short', year: 'numeric'
+            })}, ${new Date().toLocaleString('en-US',
+            { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
+          )} (GMT+7)`);
+      goldContainer.addTextDisplayComponents(footerText);
+      
+      const separator2 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
+      goldContainer.addSeparatorComponents(separator2);
+
+      const requestText = new TextDisplayBuilder()
+        .setContent(`-# Request by ${interaction.user.username}`)
+      const button1 = new ButtonBuilder()
+				.setLabel('View on TradingView')
+				.setStyle(ButtonStyle.Link)
+				.setURL(`https://www.tradingview.com/symbols/XAUUSD/?exchange=OANDA`);
+      const bottomSection = new SectionBuilder()
+        .addTextDisplayComponents(requestText)
+        .setButtonAccessory(button1);
+      goldContainer.addSectionComponents(bottomSection);
+
+      await interaction.editReply({
+        components: [ goldContainer ],
+        flags: MessageFlags.IsComponentsV2,
+        files: [attachment]
+      });
 
     } catch (error) {
       console.error(error);
