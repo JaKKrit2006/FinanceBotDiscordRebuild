@@ -52,7 +52,7 @@ async function generateChartBuffer(symbol = 'AAPL') {
             waitUntil: 'networkidle2' 
         });
         
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         const imageBuffer = await page.screenshot({ encoding: 'binary' });
         
         await browser.close();

@@ -92,6 +92,24 @@ module.exports = {
     await interaction.deferReply();
 
     const ticker = interaction.options.getString('ticker').toUpperCase();
+    /*const summary = await yahooFinance.quoteSummary('AAPL', {
+      modules: [
+        'assetProfile',       // ข้อมูลบริษัท, อุตสาหกรรม, คำอธิบาย
+        'financialData',      // revenue, profit, EPS, debt ฯลฯ
+        'defaultKeyStatistics', // P/E, P/B, beta, 52w high/low
+        'summaryDetail',      // dividend, yield, avgVolume
+        'incomeStatementHistory', // งบกำไรขาดทุน
+        'balanceSheetHistory',    // งบดุล
+        'cashflowStatementHistory', // งบกระแสเงินสด
+        'recommendationTrend',    // analyst recommendation
+        'earningsTrend',          // EPS estimates
+        'calendarEvents',         // earnings date
+        'price',                  // ราคาละเอียด
+      ]
+    });
+    */
+
+    console.log(summary);
 
     try {
       // Fetch stock price data
@@ -99,7 +117,10 @@ module.exports = {
         fields: allFields.fields
       });
       // console.log("Debug quote:");
-      console.log(quote);
+      // console.log(quote);
+      const sumQuote = await yahooFinance.quoteSummary(ticker);
+      //console.log(sumQuote);
+
       if (!quote) {
         return await interaction.editReply(`:x: There was no TICKER:**${ticker}** in the data system.`);
       }

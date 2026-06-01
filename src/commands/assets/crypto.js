@@ -61,7 +61,7 @@ module.exports = {
       const cryptoSymbol = cryptoData.symbol.toUpperCase();
       const cryptoMarketData = cryptoData.market_data;
 
-      console.log(cryptoData);
+      // console.log(cryptoData);
 
       const chartBuffer = await generateChartBuffer(`COINBASE:${cryptoSymbol}USD`);
       const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });

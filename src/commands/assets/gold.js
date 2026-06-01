@@ -6,10 +6,9 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
 const axios = require('axios');
 const { generateChartBuffer } = require('../../misc/chartCapture');
 
-const GOLD_API_KEY = process.env.GOLD_API;
-const THAI_GOLD_API = 'https://api.chnwt.dev/thai-gold-api/latest';
-const SPOT_GOLD_API = 'https://www.goldapi.io/api/XAU/USD';
-const goldImageUrl = 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/gold.gif';
+// yahoo
+const YahooFinance = require('yahoo-finance2').default;
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 module.exports = {
   name: 'gold',
@@ -19,46 +18,13 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      const [spotRes, thaiRes] = await Promise.all([
-        axios.get(SPOT_GOLD_API, {
-          headers: {
-            'x-access-token': GOLD_API_KEY,
-            'Content-Type': 'application/json'
-          }
-        }),
-        axios.get(THAI_GOLD_API)
-      ]);
-
-      // ── Spot Gold (XAU/USD) ──────────────────────────────
-      const spot = spotRes.data;
-      const spotPrice       = spot.price;
-      const spotPrevClose   = spot.prev_close_price || spotPrice;
-      const spotChange      = spot.ch ?? (spotPrice - spotPrevClose);
-      const spotChangePct   = spot.chp ?? ((spotChange / spotPrevClose) * 100);
-      const spotHigh        = spot.high_price || spotPrice;
-      const spotLow         = spot.low_price  || spotPrice;
-      const spotOpen        = spot.open_price || spotPrice;
-
-      // ── Thai Gold (สมาคมค้าทองคำ) ───────────────────────
-      const thai = thaiRes.data.response;
-      const thaiUpdateDate  = thai.update_date  || 'N/A';
-      const thaiUpdateTime  = thai.update_time  || 'N/A';
-
-      // ราคาทองแท่ง (gold_bar) และทองรูปพรรณ (gold)
-      const barBuy   = thai.price.gold_bar?.buy  || 'N/A';
-      const barSell  = thai.price.gold_bar?.sell || 'N/A';
-      const ornBuy   = thai.price.gold?.buy      || 'N/A';
-      const ornSell  = thai.price.gold?.sell     || 'N/A';
-
-      // ── Market Status ────────────────────────────────────
-      const now  = new Date();
-      const day  = now.getUTCDay();
-      const hour = now.getUTCHours();
+      const quote = await yahooFinance.quote('GC=F');
+      const marketStatus = quote.marketState;
 
       let marketSessionText = 'Opening';
       let emojiIcon = ':white_check_mark:';
 
-      if (day === 0 || day === 6 || (day === 5 && hour >= 21) || (day === 1 && hour < 22)) {
+      if (marketStatus !== 'REGULAR') {
         marketSessionText = 'Closed';
         emojiIcon = ':x:';
       }
