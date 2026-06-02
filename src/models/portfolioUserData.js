@@ -51,6 +51,11 @@ const portfolioData = new Schema({
         default: []
       },
 
+      etf: {
+        type: Array,
+        default: []
+      },
+
       crypto: {
         type: Array,
         default: []

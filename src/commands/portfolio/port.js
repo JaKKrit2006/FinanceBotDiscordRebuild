@@ -163,7 +163,7 @@ module.exports = {
           money: {
             cash: 1000, // starter money
           },
-          assets: { stock: [], crypto: [], gold: [] }
+          assets: { stock: [], etf: [],crypto: [], gold: [] }
         }
       };
 
@@ -191,7 +191,7 @@ module.exports = {
               money: {
                 cash: 1000, // starter money
               },
-              assets: { stock: [], crypto: [], gold: [] }
+              assets: { stock: [], etf: [], crypto: [], gold: [] }
             }
           })
 

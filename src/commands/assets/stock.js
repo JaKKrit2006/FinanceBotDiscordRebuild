@@ -92,34 +92,19 @@ module.exports = {
     await interaction.deferReply();
 
     const ticker = interaction.options.getString('ticker').toUpperCase();
-    /*const summary = await yahooFinance.quoteSummary('AAPL', {
-      modules: [
-        'assetProfile',       // ข้อมูลบริษัท, อุตสาหกรรม, คำอธิบาย
-        'financialData',      // revenue, profit, EPS, debt ฯลฯ
-        'defaultKeyStatistics', // P/E, P/B, beta, 52w high/low
-        'summaryDetail',      // dividend, yield, avgVolume
-        'incomeStatementHistory', // งบกำไรขาดทุน
-        'balanceSheetHistory',    // งบดุล
-        'cashflowStatementHistory', // งบกระแสเงินสด
-        'recommendationTrend',    // analyst recommendation
-        'earningsTrend',          // EPS estimates
-        'calendarEvents',         // earnings date
-        'price',                  // ราคาละเอียด
-      ]
-    });
-    */
-
-    console.log(summary);
 
     try {
       // Fetch stock price data
       const quote = await yahooFinance.quote(ticker, {
         fields: allFields.fields
       });
-      // console.log("Debug quote:");
-      // console.log(quote);
-      const sumQuote = await yahooFinance.quoteSummary(ticker);
-      //console.log(sumQuote);
+      /*
+      const sumQuote = await yahooFinance.quoteSummary(ticker, {
+        modules: ['price', 'summaryProfile', 'assetProfile', 'summaryDetail', 'defaultKeyStatistics', 'calendarEvents', 'earnings', 'financialData', 'indexTrend', 'upgradeDowngradeHistory']
+      });
+      */
+
+      // console.log(sumQuote);
 
       if (!quote) {
         return await interaction.editReply(`:x: There was no TICKER:**${ticker}** in the data system.`);
@@ -144,12 +129,12 @@ module.exports = {
         marketSessionText = 'Closed';
       }
 
-      //NasdaqGS
+      //NasdaqGS NasdaqCM NasdaqGM
       //NYSE
       //NYSEArca
 
       let bannerExchange = '';
-      if (quote.fullExchangeName === 'NasdaqGS') {
+      if (quote.fullExchangeName === 'NasdaqGS' || quote.fullExchangeName === 'NasdaqCM' || quote.fullExchangeName === 'NasdaqGM') {
         bannerExchange = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/default/NASDAQ_1.png';
       } else {
         bannerExchange = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/Banner/default/NYSE.png'

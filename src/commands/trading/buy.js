@@ -6,6 +6,7 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
  } = require('discord.js');
 
 const axios = require('axios');
+const util = require('util');
 
 // database
 const portData = require('../../models/portfolioUserData');
@@ -14,11 +15,11 @@ const portData = require('../../models/portfolioUserData');
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-// finnhub
-const util = require('util');
-const finnhub = require('finnhub');
-const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API) // Replace this
+// logo
+const LOGO_API_KEY = process.env.LOGO_API_KEY;
 
+const finnhub = require('finnhub');
+const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API)
 // Promisify Finnhub methods
 const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
 
@@ -27,6 +28,61 @@ const fs = require('fs');
 const path = require('path');
 const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
+
+
+async function createBuyContract(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction) {
+  const summary = new ContainerBuilder()
+    .setAccentColor(color) // Lime green
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`## :white_check_mark: Contract Verified!\nAsset: **${assetType.toUpperCase()}** Mode: **${mode.toUpperCase()}**`)
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder().setURL(logoURL)
+        )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## :page_facing_up: Details\n- Name: **${shortName}**\n- Symbol: **${assetSymbol}**\n- Price: **${marketPrice}$**${textDetail}\n`)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## :shopping_cart: Total Cost\n- Fee: **${fee}** (0.25%)\n- :dollar: **__${totalCostWithFee}$__** (Including Fee)`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **1000$**\n- Stock in Inventory: **0/10**`)
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL({ extension: 'png', size: 512 }))
+        )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setStyle(ButtonStyle.Primary)
+            .setLabel(`Buy ${totalCostWithFee}$`)
+            .setCustomId('confirm_purchase')
+        )
+        .addComponents(
+          new ButtonBuilder()
+            .setStyle(ButtonStyle.Secondary)
+            .setLabel('Cancel')
+            .setCustomId('cancel_purchase')
+        )
+    )
+    .addTextDisplayComponents( new TextDisplayBuilder().setContent(`-# Please confirm your purchase within 1 minute!`))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`-# Replied by Yomi`)
+    );
+
+  return summary;
+} 
+
 
 module.exports = {
   name: 'buy',
@@ -38,10 +94,25 @@ module.exports = {
   callback: async(client, interaction) => {
     await interaction.deferReply(/*{ flags: MessageFlags.Ephemeral }*/);
 
+    /*
+    const query = { userId: interaction.user.id }
+    const data = await portData.findOne(query);
+
+    if (!data) {
+      await interaction.editReply(`<@${interaction.user.id}> Sorry, You need to create portfolio first.`);
+      return;
+    }
+    */
+    // ! Global Variable Zone -------------------------------------------------------------
     let assetType = '';
     let mode = '';
     let assetSymbol = '';
     let amount = '';
+
+    // ! asset detial
+    let marketPrice = '';
+    let shortName = '';
+    let logoURL = '';
     
     try {
       const select = new StringSelectMenuBuilder()
@@ -57,8 +128,8 @@ module.exports = {
         .setCustomId('mode_select')
         .setPlaceholder('Select Mode...')
         .addOptions([
-          { label: 'Cost',   description: 'Amount of money',   value: 'cost',    emoji: '💰'},
-          { label: 'Volume', description: 'Share quantity',    value: 'volume',  emoji: '⚖️'},
+          { label: 'Cost',   description: 'Amount of money (At least 5$)',                value: 'cost',    emoji: '💰'},
+          { label: 'Volume', description: 'Share quantity (At least 1 Share/Coin/Oz)',    value: 'volume',  emoji: '⚖️'},
         ]);
 
       const openModalBtn = new ButtonBuilder()
@@ -202,31 +273,37 @@ module.exports = {
                 amountText = modalSubmit.fields.getTextInputValue('amount_input_text');
               }
 
+              assetSymbol = symbolText.toUpperCase();
+
               await modalSubmit.reply({
                 content: `${symbolText}, ${amountText}`,
                 flags: MessageFlags.Ephemeral
               });
 
+              // ! Validate Input ----------------------------------------------------------------------------
+              // ? Stock/ETF validation
               if (assetType === 'stock' || assetType === 'etf') {
                 const quote = await yahooFinance.quote(symbolText.toUpperCase());
-                console.log(quote);
+                
+                // console.log(quote);
                 // ? Check if quote exist and listed in US market
                 if (!quote) {
-                  assetSymbol = symbolText.toUpperCase();
                   collector.stop('ticker_invalid');
                   return;
                 }
                 else if (quote.market !== 'us_market') {
-                  assetSymbol = symbolText.toUpperCase();
                   collector.stop('not_usa');
                   return;
                 }
+
+                marketPrice = quote.regularMarketPrice;
+                shortName = quote.shortName;
+                // * const marketSession = quote.marketState;
 
                 let quoteType1 = quote.quoteType.toUpperCase();
                 quoteType1 = quoteType1 === 'EQUITY' ? 'STOCK' : quoteType1; // Normalize to STOCK
 
                 if (quoteType1 !== assetType.toUpperCase()) {
-                  assetSymbol = symbolText.toUpperCase();
                   if (assetType === 'stock') {
                     collector.stop('is_etf');
                   } else {
@@ -235,19 +312,60 @@ module.exports = {
 
                   return;
                 }
-                
-                assetSymbol = symbolText.toUpperCase();
-                amount = amountText;
+
+                logoURL = `https://cdn.brandfetch.io/ticker/${assetSymbol}/w/400/h/400?c=${LOGO_API_KEY}`;
+                amount = Number(amountText);
+              }
+              // ? Crypto validation
+              else if (assetType === 'crypto') {
+                const allCoinPath = path.join(__dirname, '..', '..', '..', 'allcoin.json');
+                /*if (!fs.existsSync(allCoinPath)) {
+                  return await interaction.editReply(`❌ ไม่พบไฟล์ allcoin.json ในระบบ กรุณาตรวจสอบพาร์ทไฟล์`);
+                }*/
+                const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
+                const coinMatch = allCoin.find(c =>
+                  c.name.toUpperCase() === assetSymbol ||
+                  c.id.toUpperCase() === assetSymbol ||
+                  c.symbol.toUpperCase() === assetSymbol
+                );
+                if (!coinMatch) {
+                  collector.stop('ticker_invalid');
+                  return;
+                }
+
+                const cryptoResponse = await axios.get(`${COINGECKO_BASE_URL}/coins/${coinMatch.id}`, {
+                  headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY }
+                });
+                const cryptoData = cryptoResponse.data;
+                const cryptoMarketData = cryptoData.market_data;
+                const imageUrl = cryptoData.image.large;
+                const cryptoMarketPrice = cryptoMarketData.current_price.usd;
+
+                // ? Check Stable Coin
+                const isStable = cryptoData.categories?.some(cat => cat.toLowerCase().includes('stablecoin'));
+                if (isStable) {
+                  collector.stop('stable_coin');
+                  return;
+                }
+
+                logoURL = imageUrl;
+                shortName = cryptoData.name;
+                amount = Number(amountText);
+                marketPrice = cryptoMarketPrice;
               }
 
               if (isNaN(amountText)) {
                 collector.stop('int_invalid');
+              } else if (Number(amountText) < 5 && mode === 'cost') {
+                collector.stop('amount_too_low');
+              } else if (Number(amountText) < 1 && mode === 'volume') {
+                collector.stop('volume_too_low');
               } else {
                 collector.stop('done');
               }
 
             } catch (modalError) {
-              console.log('Modal timeout หรือถูกปิดไปโดยไม่ได้ส่งข้อมูล');
+              console.log(modalError);
             }
           }
         });
@@ -260,13 +378,108 @@ module.exports = {
           let titleText = '';
           let descText = '';
           let gifURL = '';
-          let color = 0xDC143C; // default crimson
+          let color = 0xDC143C;
+
+          // ? Continue to buy process here if reason is 'done'
+          if (reason === 'done') {
+            let textDetail = '';
+            let volume = mode === 'cost' ? (amount / marketPrice).toFixed(7) : amount;
+            let totalCost = (mode === 'cost') ? amount : (volume * marketPrice).toFixed(2);
+            let fee = (totalCost * 0.0025).toFixed(2);
+            let totalCostWithFee = (totalCost * 1.0025).toFixed(2);
+
+            color = 0x32CD32; // Lime green
+
+            if (assetType === 'stock') {
+              const companyProfile = await promisifiedCompanyProfile({ 'symbol': assetSymbol });
+              logoURL = companyProfile.logo || logoURL; // Fallback to constructed URL if Finnhub doesn't return a logo
+            }
+
+            if (mode === 'cost' && (assetType === 'stock' || assetType === 'etf')) {
+              textDetail = `\n- Amount: **${amount}$**\n- Volume: **${volume}** Shares`;
+            }
+            else if (mode === 'cost' && assetType === 'crypto') {
+              textDetail = `\n- Amount: **${amount}$**\n- Volume: **${volume}** Coins`;
+            }
+            else if (mode === 'cost' && assetType === 'gold') {
+              textDetail = `\n- Amount: **${amount}$**\n- Volume: **${volume}** Oz`;
+            }
+            else if (mode === 'volume' && (assetType === 'stock' || assetType === 'etf')) {
+              textDetail = `\n- Volume: **${amount}** Shares`;
+            }
+            else if (mode === 'volume' && assetType === 'crypto') {
+              textDetail = `\n- Volume: **${amount}** Coins`;
+            }
+            else if (mode === 'volume' && assetType === 'gold') {
+              textDetail = `\n- Volume: **${amount}** Oz`;
+            }
+
+            // ! function
+            const summary = await createBuyContract(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction);
+            
+            const response = await interaction.editReply({
+              components: [summary],
+              flags: MessageFlags.IsComponentsV2
+            });
+
+            const filter1 = (i) => true;
+            const collector1 = response.createMessageComponentCollector({ filter: filter1, time: 60000 });
+
+            collector1.on('collect', async (i) => {
+              if (i.user.id !== interaction.user.id) {
+                await i.reply({ content: `Sorry, This's not your menu!`, flags: MessageFlags.Ephemeral });
+                return;
+              }
+              
+              // TODO continue to buy process here if confirm purchase button clicked
+              console.log("Button Click", i.customId);
+            });
+
+            collector1.on('end', async (collected, reason) => {
+              // TODO Make function to reduce code
+              console.log("Collector1 Ended", reason);
+
+              titleText = ':receipt: Contract Expired!';
+              descText = 'You need to confirm within **1 minute**';
+              gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad1.gif`
+
+              // ! crate container when Error or Time out
+              collectContainer
+                .setAccentColor(0xDC143C) // default crimson
+
+                .addSectionComponents(
+                  new SectionBuilder()
+                    .addTextDisplayComponents( new TextDisplayBuilder()
+                      .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}, Please try again\n- Thank you for your attention`)
+                    )
+                    .setThumbnailAccessory( new ThumbnailBuilder()
+                      .setURL(gifURL)
+                    )
+                )
+                .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+                .addTextDisplayComponents( new TextDisplayBuilder()
+                  .setContent(`-# Replied by Yomi`)  
+                )
+
+              await interaction.editReply({
+                components: [ collectContainer ],
+                flags: MessageFlags.IsComponentsV2
+              });
+            });
+          }
 
           if (reason === 'ticker_invalid') {
             titleText = ':pencil: Type Error!';
             descText = `Ticker **${assetSymbol}** not found! Please check your input`;
             gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank2.gif';
           }
+
+          else if (reason === 'stable_coin') {
+            titleText = ':pencil: Input Error!';
+            descText = `Coin **${assetSymbol}** is a Stable Coin, not allowed in this contract`;
+            gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank2.gif';
+          }
+
           else if (reason === 'not_usa') {
             titleText = ':flag_us: Market Error!';
             descText = `Ticker **${assetSymbol}** is not listed on the US market`;
@@ -276,6 +489,18 @@ module.exports = {
           else if (reason === 'int_invalid') {
             titleText = ':pencil: Type Error!';
             descText = 'Amount input should be an **Integer!**';
+            gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank1.gif';
+          }
+
+          else if (reason === 'amount_too_low') {
+            titleText = ':pencil: Value Error!';
+            descText = 'Amount Mode must be at least **5$**';
+            gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank1.gif';
+          }
+
+          else if (reason === 'volume_too_low') {
+            titleText = ':pencil: Value Error!';
+            descText = 'Volume Mode must be at least **1 Share/Coin/Oz**';
             gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank1.gif';
           }
 
@@ -300,28 +525,30 @@ module.exports = {
             gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad${randomIndex}.gif`;
           }
 
-          // ! crate container
-          collectContainer
-            .setAccentColor(color)
+          if (reason !== 'done') {
+            // ! crate container when Error or Time out
+            collectContainer
+              .setAccentColor(color)
 
-            .addSectionComponents(
-              new SectionBuilder()
-                .addTextDisplayComponents( new TextDisplayBuilder()
-                  .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}, Please try again\n- Thank you for your attention`)
-                )
-                .setThumbnailAccessory( new ThumbnailBuilder()
-                  .setURL(gifURL || 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_idle1.gif')
-                )
-            )
-            .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
-            .addTextDisplayComponents( new TextDisplayBuilder()
-              .setContent(`-# Replied by Yomi`)  
-            )
+              .addSectionComponents(
+                new SectionBuilder()
+                  .addTextDisplayComponents( new TextDisplayBuilder()
+                    .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}, Please try again\n- Thank you for your attention`)
+                  )
+                  .setThumbnailAccessory( new ThumbnailBuilder()
+                    .setURL(gifURL || 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_idle1.gif')
+                  )
+              )
+              .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+              .addTextDisplayComponents( new TextDisplayBuilder()
+                .setContent(`-# Replied by Yomi`)  
+              )
 
-          await interaction.editReply({
-            components: [ collectContainer ],
-            flags: MessageFlags.IsComponentsV2
-          });
+            await interaction.editReply({
+              components: [ collectContainer ],
+              flags: MessageFlags.IsComponentsV2
+            });
+          }
           
         });
 
