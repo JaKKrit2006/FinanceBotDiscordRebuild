@@ -354,6 +354,15 @@ module.exports = {
                 marketPrice = cryptoMarketPrice;
               }
 
+              // ? Gold validation
+              else if (assetType === 'gold') {
+                const quote = await yahooFinance.quote("GC=F");
+                logoURL = `https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/pngtree-a-pile-of-gold-bars-png-image_13244472.png`;
+                shortName = quote.shortName;
+                marketPrice = quote.regularMarketPrice;
+                amount = Number(amountText);
+              }
+
               if (isNaN(amountText)) {
                 collector.stop('int_invalid');
               } else if (Number(amountText) < 5 && mode === 'cost') {
