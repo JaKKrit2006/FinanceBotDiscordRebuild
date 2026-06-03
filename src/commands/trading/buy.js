@@ -7,6 +7,7 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
 
 const axios = require('axios');
 const util = require('util');
+const dayjs = require('dayjs');
 
 // database
 const portData = require('../../models/portfolioUserData');
@@ -30,13 +31,13 @@ const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
 
 
-async function createBuyContract(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction) {
+async function createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv) {
   const summary = new ContainerBuilder()
     .setAccentColor(color) // Lime green
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`## :white_check_mark: Contract Verified!\nAsset: **${assetType.toUpperCase()}** Mode: **${mode.toUpperCase()}**`)
+          new TextDisplayBuilder().setContent(`## :white_check_mark: Order Verified!\nAsset: **${assetType.toUpperCase()}** Mode: **${mode.toUpperCase()}**`)
         )
         .setThumbnailAccessory(
           new ThumbnailBuilder().setURL(logoURL)
@@ -53,7 +54,7 @@ async function createBuyContract(color, assetType, mode, assetSymbol, marketPric
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **1000$**\n- Stock in Inventory: **0/10**`)
+          new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **1000$**\n- Inventory: **${amountInv}/10**`)
         )
         .setThumbnailAccessory(
           new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL({ extension: 'png', size: 512 }))
@@ -94,25 +95,28 @@ module.exports = {
   callback: async(client, interaction) => {
     await interaction.deferReply(/*{ flags: MessageFlags.Ephemeral }*/);
 
-    /*
+    
     const query = { userId: interaction.user.id }
-    const data = await portData.findOne(query);
+    let data = await portData.findOne(query);
 
     if (!data) {
       await interaction.editReply(`<@${interaction.user.id}> Sorry, You need to create portfolio first.`);
       return;
     }
-    */
+    
+
     // ! Global Variable Zone -------------------------------------------------------------
     let assetType = '';
     let mode = '';
     let assetSymbol = '';
     let amount = '';
+    let amountInv = 0;
 
     // ! asset detial
     let marketPrice = '';
     let shortName = '';
     let logoURL = '';
+    let cryptoSymbol_special = '';
     
     try {
       const select = new StringSelectMenuBuilder()
@@ -144,7 +148,7 @@ module.exports = {
         .addSectionComponents(
           new SectionBuilder()
             .addTextDisplayComponents( new TextDisplayBuilder()
-              .setContent(`## :receipt: Contract Buying Assets!\nSelect an asset type and mode, then fill in your contract details below`
+              .setContent(`## :receipt: Order Buying Assets!\nSelect an asset type and mode, then fill in your Order details below`
                 + `\n- **This message will appear for 1 minute!**`
               )
             )
@@ -189,22 +193,14 @@ module.exports = {
           if (i.customId === 'assets_select') {
             const selectedValue = i.values[0];
             assetType = selectedValue;
-
-            await i.reply({
-              content: `you chose: **${selectedValue}**`,
-              flags: MessageFlags.Ephemeral
-            });
+            await i.deferUpdate();
           }
 
           // ? Mode Select Menu
           if (i.customId === 'mode_select') {
             const selectedValue = i.values[0];
             mode = selectedValue;
-            
-            await i.reply({
-              content: `you chose: **${selectedValue}**`,
-              flags: MessageFlags.Ephemeral
-            });
+            await i.deferUpdate();
           }
 
           // ! Modal Menu
@@ -229,7 +225,7 @@ module.exports = {
                 .setCustomId('amount_input_text')
                 .setLabel(amountText)
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Number only!...')
+                .setPlaceholder('Number only...')
                 .setRequired(true);
 
               const secondActionRow = new ActionRowBuilder().addComponents(amountInput);
@@ -246,7 +242,7 @@ module.exports = {
                 .setCustomId('amount_input_text')
                 .setLabel(amountText)
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Number only!...')
+                .setPlaceholder('Number only...')
                 .setRequired(true);
 
               const firstActionRow = new ActionRowBuilder().addComponents(symbolInput);
@@ -262,6 +258,8 @@ module.exports = {
                 time: 60000, // 1 min
               });
 
+              await modalSubmit.deferUpdate();
+
               let symbolText = '';
               let amountText = '';
 
@@ -274,11 +272,43 @@ module.exports = {
               }
 
               assetSymbol = symbolText.toUpperCase();
+              let upData = await portData.findOne(query);
+              // TODO check inventory
+              const money = upData.balance.money.cash;
+              const assetArray = upData.balance.assets;
 
-              await modalSubmit.reply({
-                content: `${symbolText}, ${amountText}`,
-                flags: MessageFlags.Ephemeral
-              });
+              // ? All assets array
+              const stockArray = assetArray.stock;
+              const etfArray = assetArray.etf;
+              const cryptoArray = assetArray.crypto;
+              const goldArray = assetArray.gold;
+
+              const getUniqueSymbols = (dataArray) => {
+                const allSymbols = dataArray.map(item => item.symbol);
+                return [...new Set(allSymbols)];
+              };
+
+              // ! Check Inventory
+              if (assetType === 'stock') {
+                const stockAmount = getUniqueSymbols(stockArray).length;
+                amountInv = stockAmount;
+
+                if (stockAmount >= 10 && !getUniqueSymbols(stockArray).includes(assetSymbol)) {
+                  collector.stop('inventory_limit');
+                  return;
+                }
+              } else if (assetType === 'etf') {
+                const etfAmount = getUniqueSymbols(etfArray).length;
+                amountInv = etfAmount;
+
+                if (etfAmount >= 10 && !getUniqueSymbols(etfArray).includes(assetSymbol)) {
+                  collector.stop('inventory_limit');
+                  return;
+                }
+              }
+
+              // console.log(getUniqueSymbols(etfArray));
+              // console.log(getUniqueSymbols(cryptoArray));
 
               // ! Validate Input ----------------------------------------------------------------------------
               // ? Stock/ETF validation
@@ -295,7 +325,7 @@ module.exports = {
                   collector.stop('not_usa');
                   return;
                 }
-
+                
                 marketPrice = quote.regularMarketPrice;
                 shortName = quote.shortName;
                 // * const marketSession = quote.marketState;
@@ -333,6 +363,14 @@ module.exports = {
                   return;
                 }
 
+                const cryptoAmount = getUniqueSymbols(cryptoArray).length;
+                amountInv = cryptoAmount;
+
+                if (cryptoAmount >= 10 && !getUniqueSymbols(cryptoArray).includes(coinMatch.symbol.toUpperCase())) {
+                  collector.stop('inventory_limit');
+                  return;
+                }
+
                 const cryptoResponse = await axios.get(`${COINGECKO_BASE_URL}/coins/${coinMatch.id}`, {
                   headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY }
                 });
@@ -352,6 +390,7 @@ module.exports = {
                 shortName = cryptoData.name;
                 amount = Number(amountText);
                 marketPrice = cryptoMarketPrice;
+                assetSymbol = coinMatch.symbol.toUpperCase();
               }
 
               // ? Gold validation
@@ -361,6 +400,7 @@ module.exports = {
                 shortName = quote.shortName;
                 marketPrice = quote.regularMarketPrice;
                 amount = Number(amountText);
+                amountInv = '-';
               }
 
               if (isNaN(amountText)) {
@@ -382,12 +422,12 @@ module.exports = {
         // collector end after 1 min
         collector.on('end', async (collected, reason) => {
           const collectContainer = new ContainerBuilder();
-          console.log(reason); // TODO continue to buy
+          // console.log(reason); // TODO continue to buy
 
           let titleText = '';
           let descText = '';
           let gifURL = '';
-          let color = 0xDC143C;
+          let color = 0xDC143C; // crimson
 
           // ? Continue to buy process here if reason is 'done'
           if (reason === 'done') {
@@ -424,7 +464,8 @@ module.exports = {
             }
 
             // ! function
-            const summary = await createBuyContract(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction);
+            const summary = await createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, shortName,
+              logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv);
             
             const response = await interaction.editReply({
               components: [summary],
@@ -440,40 +481,91 @@ module.exports = {
                 return;
               }
               
-              // TODO continue to buy process here if confirm purchase button clicked
-              console.log("Button Click", i.customId);
+              // ? Confirm Buy
+              if (i.customId === 'confirm_purchase') {
+                await i.deferUpdate();
+                
+                const payloadData = {
+                  symbol: assetSymbol,
+                  volume: Number(volume),
+                  cost: Number(totalCostWithFee),
+                  date: new Date(), // ? UTC TIME
+                };
+
+                await portData.updateOne(query, {
+                  $push : {
+                  [`balance.assets.${assetType.toLowerCase()}`]: payloadData
+                }})
+
+                collector1.stop('done');
+              } 
+              
+              // ? Cancel Buy
+              else if (i.customId === 'cancel_purchase') {
+                await i.deferUpdate();
+                collector1.stop('cancel');
+              }
             });
 
             collector1.on('end', async (collected, reason) => {
               // TODO Make function to reduce code
-              console.log("Collector1 Ended", reason);
+              
+              if (reason === 'time') {
+                titleText = ':receipt: Order Expired!';
+                descText = 'You need to confirm within **1 minute**, Please try again';
+                gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad1.gif`
+              }
+              else if (reason === 'cancel') {
+                titleText = ':receipt: Cancel Order!';
+                descText = `You just **canceled** the Order!`;
+                gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad3.gif`
+              }
 
-              titleText = ':receipt: Contract Expired!';
-              descText = 'You need to confirm within **1 minute**';
-              gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad1.gif`
+              if (reason === 'done') {
+                const container = new ContainerBuilder()
+                  .setAccentColor(0x32CD32)
+                  .addSectionComponents(
+                    new SectionBuilder()
+                      .addTextDisplayComponents( new TextDisplayBuilder().setContent(`## :receipt: Order Placed!\n- Asset: **${assetType.toUpperCase()}**\n- Symbol: **${assetSymbol}**\n- Entry Price: **${marketPrice}$**`
+                        + `\n- Volume: **${volume}**\n- Date: **${dayjs().format('hh:mm A, ddd D MMM YYYY')} (GMT+7)**\n- Value: :dollar: **__${totalCostWithFee}$__**`))
+                      .setThumbnailAccessory( new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL({ extension: 'png', size: 512 })))
+                  )
+                  .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+                  .addTextDisplayComponents( new TextDisplayBuilder()
+                    .setContent(`-# Replied by Yomi`)
+                  )
 
-              // ! crate container when Error or Time out
-              collectContainer
-                .setAccentColor(0xDC143C) // default crimson
+                await interaction.editReply({
+                  components: [ container ],
+                  flags: MessageFlags.IsComponentsV2
+                });
+              }
 
-                .addSectionComponents(
-                  new SectionBuilder()
-                    .addTextDisplayComponents( new TextDisplayBuilder()
-                      .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}, Please try again\n- Thank you for your attention`)
-                    )
-                    .setThumbnailAccessory( new ThumbnailBuilder()
-                      .setURL(gifURL)
-                    )
-                )
-                .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
-                .addTextDisplayComponents( new TextDisplayBuilder()
-                  .setContent(`-# Replied by Yomi`)  
-                )
+              else {
+                // ! crate container when Error or Time out
+                collectContainer
+                  .setAccentColor(0xDC143C) // default crimson
 
-              await interaction.editReply({
-                components: [ collectContainer ],
-                flags: MessageFlags.IsComponentsV2
-              });
+                  .addSectionComponents(
+                    new SectionBuilder()
+                      .addTextDisplayComponents( new TextDisplayBuilder()
+                        .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}\n- Thank you for your attention`)
+                      )
+                      .setThumbnailAccessory( new ThumbnailBuilder()
+                        .setURL(gifURL)
+                      )
+                  )
+                  .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+                  .addTextDisplayComponents( new TextDisplayBuilder()
+                    .setContent(`-# Replied by Yomi`)  
+                  )
+
+                await interaction.editReply({
+                  components: [ collectContainer ],
+                  flags: MessageFlags.IsComponentsV2
+                });
+              }
+              
             });
           }
 
@@ -482,10 +574,16 @@ module.exports = {
             descText = `Ticker **${assetSymbol}** not found! Please check your input`;
             gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank2.gif';
           }
+          
+          else if (reason === 'inventory_limit') {
+            titleText = ':pencil: Inventory Limit!';
+            descText = `**${assetType.toUpperCase()}** inventory is full you need to **sell all/remove** some stock`;
+            gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank2.gif';
+          }
 
           else if (reason === 'stable_coin') {
             titleText = ':pencil: Input Error!';
-            descText = `Coin **${assetSymbol}** is a Stable Coin, not allowed in this contract`;
+            descText = `Coin **${assetSymbol}** is a Stable Coin, not allowed in this Order`;
             gifURL = 'https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_blank2.gif';
           }
 
@@ -529,7 +627,7 @@ module.exports = {
 
           else if (reason === 'time') {
             const randomIndex = Math.floor(Math.random() * 3) + 1 // 1-3
-            titleText = ':receipt: Contract Expired!';
+            titleText = ':receipt: Order Expired!';
             descText = 'You need to fill in all information within **1 minute**';
             gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad${randomIndex}.gif`;
           }
@@ -560,40 +658,6 @@ module.exports = {
           }
           
         });
-
-      /*
-      // user id
-      const query = { userId: interaction.user.id }
-      const data = await portData.findOne(query);
-
-      // if no data
-      if (!data) {
-        await interaction.editReply(`<@${interaction.user.id}> Sorry, You need to create portfolio first.`);
-        return;
-      }
-
-      const userMoney = data.balance.money.cash;
-      const allCoinPath = path.join(__dirname, '..', '..', '..', 'allcoin.json');
-      if (!fs.existsSync(allCoinPath)) {
-        return await interaction.editReply(`❌ ไม่พบไฟล์ allcoin.json ในระบบ กรุณาตรวจสอบพาร์ทไฟล์`);
-      }
-      const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
-      const coinMatch = allCoin.find(c =>
-        c.name.toUpperCase() === selectAsset ||
-        c.id.toUpperCase() === selectAsset ||
-        c.symbol.toUpperCase() === selectAsset
-      );
-      if (!coinMatch) {
-        return await interaction.editReply(`Sorry, your coin name could not find.`);
-      }
-      const cryptoResponse = await axios.get(`${COINGECKO_BASE_URL}/coins/${coinMatch.id}`, {
-        headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY }
-      });
-      const cryptoData = cryptoResponse.data;
-      const cryptoMarketData = cryptoData.market_data;
-      imageUrl = cryptoData.image.large;
-      marketprice = cryptoMarketData.current_price.usd;
-      */
     }
 
     catch (error) {
