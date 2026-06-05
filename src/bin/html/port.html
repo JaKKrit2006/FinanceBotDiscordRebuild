@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>Portfolio Finance Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/bin/css/style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+  <div class="header">
+    <div class="avatar-wrap">
+      <div class="avatar-ring"></div>
+      <div class="avatar">
+        <img src="https://cdn.discordapp.com/avatars/742741926595526718/80c0111b3226119b204577e640cd8499.png?format=webp&quality=lossless">
+      </div>
+    </div>
+
+    <div class="rank-block">
+      <div class="rank-row">
+        <span class="rank-label">Rank</span>
+        <span class="rank-name">Newbie</span>
+        <span class="rank-level">LV.65</span>
+      </div>
+      <div class="xp-bar-wrap">
+        <div class="xp-bar-fill"></div>
+      </div>
+      <div class="xp-text">850 / 2500 XP</div>
+    </div>
+
+    <div class="main-value-block" style="margin-left:12px;">
+      <div class="portfolio-value ticker">$156,233.26</div>
+      <div class="portfolio-change">+$5,653.25 &nbsp;<span style="opacity:0.6;font-weight:400;">(12.5% All time)</span></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Profit</span>
+        <span class="stat-value">$1,523.25</span>
+        <span class="stat-sub green">Today +2.25%</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Yield% (1Y)</span>
+        <span class="stat-value">2.35%</span>
+        <span class="stat-sub muted">Annual Return</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Dividend</span>
+        <span class="stat-value">$35.23</span>
+        <span class="stat-sub muted">2.58% (1Y)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+
+    <div class="assets-card">
+      <div class="card-title">Assets Ratio</div>
+      <div class="pie-wrap">
+        <svg class="pie-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="100" cy="100" r="78" fill="none" stroke="#1e1e2a" stroke-width="28"/>
+          <circle cx="100" cy="100" r="78" fill="none" stroke="#1db954" stroke-width="28"
+            stroke-dasharray="284.2 490.09"
+            stroke-dashoffset="0"
+            stroke-linecap="butt"
+            transform="rotate(-90 100 100)"
+            style="animation: dashGrow 1.2s ease 0.2s both;">
+          </circle>
+          <circle cx="100" cy="100" r="78" fill="none" stroke="#4a9eff" stroke-width="28"
+            stroke-dasharray="107.8 490.09"
+            stroke-dashoffset="-284.2"
+            transform="rotate(-90 100 100)">
+          </circle>
+          <circle cx="100" cy="100" r="78" fill="none" stroke="#f5a623" stroke-width="28"
+            stroke-dasharray="58.8 490.09"
+            stroke-dashoffset="-392"
+            transform="rotate(-90 100 100)">
+          </circle>
+          <circle cx="100" cy="100" r="78" fill="none" stroke="#9d4edd" stroke-width="28"
+            stroke-dasharray="39.2 490.09"
+            stroke-dashoffset="-450.8"
+            transform="rotate(-90 100 100)">
+          </circle>
+          <text x="100" y="94" text-anchor="middle" fill="#f0f0f8" font-family="Outfit" font-size="18" font-weight="800">$156K</text>
+          <text x="100" y="112" text-anchor="middle" fill="#8888aa" font-family="Outfit" font-size="10" font-weight="500" letter-spacing="1">TOTAL</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-left"><div class="legend-dot" style="background:#1db954"></div><span class="legend-name">Stocks</span></div>
+          <span class="legend-pct">58.0%</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left"><div class="legend-dot" style="background:#4a9eff"></div><span class="legend-name">Crypto</span></div>
+          <span class="legend-pct">22.0%</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left"><div class="legend-dot" style="background:#f5a623"></div><span class="legend-name">ETF</span></div>
+          <span class="legend-pct">12.0%</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left"><div class="legend-dot" style="background:#9d4edd"></div><span class="legend-name">Cash</span></div>
+          <span class="legend-pct">8.0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="txn-card">
+      <div class="card-title">Transaction History</div>
+      <div class="txn-list">
+
+        <div class="txn-item sell">
+          <div class="txn-left">
+            <span class="txn-ticker">NVDA</span>
+            <span class="txn-detail">-0.152456 Shares</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount positive">+$23.12</span>
+            <span class="txn-badge sell">Sell</span>
+          </div>
+        </div>
+
+        <div class="txn-item buy">
+          <div class="txn-left">
+            <span class="txn-ticker">AMD</span>
+            <span class="txn-detail">+1.252456 Shares</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount negative">-$235.12</span>
+            <span class="txn-badge buy">Buy</span>
+          </div>
+        </div>
+
+        <div class="txn-item sell">
+          <div class="txn-left">
+            <span class="txn-ticker">WMT</span>
+            <span class="txn-detail">-15 Shares</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount positive">+$15.2K</span>
+            <span class="txn-badge sell">Sell</span>
+          </div>
+        </div>
+
+        <div class="txn-item buy">
+          <div class="txn-left">
+            <span class="txn-ticker">BTC</span>
+            <span class="txn-detail">+0.022548 Coins</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount negative">-$4.23K</span>
+            <span class="txn-badge buy">Buy</span>
+          </div>
+        </div>
+
+        <div class="txn-item div">
+          <div class="txn-left">
+            <span class="txn-ticker">KO</span>
+            <span class="txn-detail">Div. $0.24 per Share</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount positive">+$23.12</span>
+            <span class="txn-badge div">Div.</span>
+          </div>
+        </div>
+
+        <div class="txn-item sell">
+          <div class="txn-left">
+            <span class="txn-ticker">AAPL</span>
+            <span class="txn-detail">-2.0 Shares</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount positive">+$452.80</span>
+            <span class="txn-badge sell">Sell</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+<div class="graph-card">
+    <div class="graph-header">
+      <span class="graph-title">Portfolio Performance</span>
+    </div>
+
+    <div class="chart-wrap">
+      <svg class="chart-svg" viewBox="0 0 1440 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1db954" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#1db954" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#1db954" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#5fff8a"/>
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- ? Horizontal Line -->
+        <line class="chart-grid-line" x1="50" y1="300" x2="1600" y2="300" />
+        <line class="chart-grid-line" x1="50" y1="250" x2="1600" y2="250" />
+        <line class="chart-grid-line" x1="50" y1="200" x2="1600" y2="200" />
+        <line class="chart-grid-line" x1="50" y1="150" x2="1600" y2="150" />
+        <line class="chart-grid-line" x1="50" y1="100" x2="1600" y2="100" />
+        <line class="chart-grid-line" x1="50" y1="50"  x2="1600" y2="50"  />
+        <line class="chart-grid-line" x1="50" y1="0"  x2="1600" y2="0"  />
+
+        <!-- ? Vertical Line -->
+        <line class="chart-grid-line-v" x1="50" y1="0" x2="50" y2="300" />
+
+        <text class="chart-label-x" x="60"   y="335">May 1</text>
+        <text class="chart-label-x" x="280"  y="335">May 8</text>
+        <text class="chart-label-x" x="520"  y="335">May 15</text>
+        <text class="chart-label-x" x="760"  y="335">May 22</text>
+        <text class="chart-label-x" x="1000" y="335">May 29</text>
+        <text class="chart-label-x" x="1240" y="335">Jun 4</text>
+        <text class="chart-label-x" x="1400" y="335">Jun 5</text>
+
+        <text class="chart-label-y" x="0" y="305">$128K</text>
+        <text class="chart-label-y" x="0" y="255">$135K</text>
+        <text class="chart-label-y" x="0" y="205">$140K</text>
+        <text class="chart-label-y" x="0" y="155">$148K</text>
+        <text class="chart-label-y" x="0" y="105">$154K</text>
+        <text class="chart-label-y" x="0" y="55" >$160K</text>
+        <text class="chart-label-y" x="0" y="5" >$180K</text>
+
+        <path d="M50,185 C100,182 130,190 170,175 C210,160 240,165 280,155 C320,145 350,160 400,148 C450,136 480,142 520,130 C560,118 600,125 650,108 C700,91 730,100 770,88 C810,76 840,95 880,80 C920,65 950,72 990,58 C1030,44 1060,50 1100,38 C1140,26 1170,32 1210,22 C1250,12 1310,18 1400,10 L1400,250 L60,250 Z"
+              fill="url(#chartGrad)"/>
+
+        <path d="M50,185 C100,182 130,190 170,175 C210,160 240,165 280,155 C320,145 350,160 400,148 C450,136 480,142 520,130 C560,118 600,125 650,108 C700,91 730,100 770,88 C810,76 840,95 880,80 C920,65 950,72 990,58 C1030,44 1060,50 1100,38 C1140,26 1170,32 1210,22 C1250,12 1310,18 1400,10"
+              fill="none" stroke="url(#lineGrad)" stroke-width="2"
+              filter="url(#glow)"
+              stroke-dasharray="2200" stroke-dashoffset="2200"
+              style="animation: drawLine 0.5s ease 0.3s forwards;">
+        </path>
+
+        <circle cx="1400" cy="10" r="5" fill="#1db954" style="animation: dotPop 0.3s ease 0.5s both;">
+          <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="1400" cy="10" r="10" fill="rgba(29,185,84,0.2)" style="animation: dotPop 0.3s ease 0.5s both;">
+          <animate attributeName="r" values="10;14;10" dur="2s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+</div>
+
+  <div class="assets-table-card">
+    <div class="table-header assets-master-grid-layout">
+        <span class="text-left">Top Assets</span>
+        <span>Price</span>
+        <span>Volume</span>
+        <span>Value</span>
+        <span>Change (1D)</span>
+        <span>Profit (%)</span>
+        <span>Allocation</span>
+    </div>
+
+    <div class="asset-list-container">
+
+        <div class="asset-row-item assets-master-grid-layout">
+            <div class="asset-main-info">
+                <img class="asset-icon" src="https://img.logo.dev/ticker/NVDA?token=pk_fwZXSnJzRW6AO037_JMVkg&retina=true">
+                <div>
+                    <div class="asset-name">NVDA</div>
+                    <div class="asset-full">NVIDIA Corp.</div>
+                </div>
+            </div>
+            <div class="asset-data-cell text-muted-cell">$1,208.45</div>
+            <div class="asset-data-cell text-muted-cell">12.256487</div>
+            <div class="asset-data-cell text-muted-cell">$42,850</div>
+            <div class="asset-data-cell change-positive">+3.24%</div>
+            <div class="asset-data-cell change-positive">+73.24%</div>
+            <div class="asset-data-cell">
+                <div class="alloc-bar-wrap">
+                    <span class="text-muted-cell" style="font-family:'JetBrains Mono',monospace;">27.4%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:27%;background:#76b900;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="asset-row-item assets-master-grid-layout">
+            <div class="asset-main-info">
+                <img class="asset-icon" src="https://img.logo.dev/ticker/NVDA?token=pk_fwZXSnJzRW6AO037_JMVkg&retina=true">
+                <div>
+                    <div class="asset-name">NVDA</div>
+                    <div class="asset-full">NVIDIA Corp.</div>
+                </div>
+            </div>
+            <div class="asset-data-cell text-muted-cell">$1,208.45</div>
+            <div class="asset-data-cell text-muted-cell">12.256487</div>
+            <div class="asset-data-cell text-muted-cell">$42,850</div>
+            <div class="asset-data-cell change-negative">-3.24%</div>
+            <div class="asset-data-cell change-positive">+73.24%</div>
+            <div class="asset-data-cell">
+                <div class="alloc-bar-wrap">
+                    <span class="text-muted-cell" style="font-family:'JetBrains Mono',monospace;">27.4%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:27%;background:#76b900;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="asset-row-item assets-master-grid-layout">
+            <div class="asset-main-info">
+                <img class="asset-icon" src="https://img.logo.dev/ticker/NVDA?token=pk_fwZXSnJzRW6AO037_JMVkg&retina=true">
+                <div>
+                    <div class="asset-name">NVDA</div>
+                    <div class="asset-full">NVIDIA Corp.</div>
+                </div>
+            </div>
+            <div class="asset-data-cell text-muted-cell">$1,208.45</div>
+            <div class="asset-data-cell text-muted-cell">12.256487</div>
+            <div class="asset-data-cell text-muted-cell">$42,850</div>
+            <div class="asset-data-cell change-negative">-3.24%</div>
+            <div class="asset-data-cell change-positive">+73.24%</div>
+            <div class="asset-data-cell">
+                <div class="alloc-bar-wrap">
+                    <span class="text-muted-cell" style="font-family:'JetBrains Mono',monospace;">27.4%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:27%;background:#76b900;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="asset-row-item assets-master-grid-layout">
+            <div class="asset-main-info">
+                <img class="asset-icon" src="https://img.logo.dev/ticker/NVDA?token=pk_fwZXSnJzRW6AO037_JMVkg&retina=true">
+                <div>
+                    <div class="asset-name">NVDA</div>
+                    <div class="asset-full">NVIDIA Corp.</div>
+                </div>
+            </div>
+            <div class="asset-data-cell text-muted-cell">$1,208.45</div>
+            <div class="asset-data-cell text-muted-cell">12.256487</div>
+            <div class="asset-data-cell text-muted-cell">$42,850</div>
+            <div class="asset-data-cell change-negative">-3.24%</div>
+            <div class="asset-data-cell change-positive">+73.24%</div>
+            <div class="asset-data-cell">
+                <div class="alloc-bar-wrap">
+                    <span class="text-muted-cell" style="font-family:'JetBrains Mono',monospace;">27.4%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:27%;background:#76b900;"></div></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</div>
+
+<script>
+  // Time tab interaction
+</script>
+
+</body>
+</html>
