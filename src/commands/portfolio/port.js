@@ -105,7 +105,7 @@ module.exports = {
   name: 'portfolio',
   description: 'Check your balance and assets',
   deleted: false,
-  devOnly: true,
+  devOnly: false,
 
   options: [
     {
@@ -158,13 +158,16 @@ module.exports = {
         ranks: 'Newbie',
         time: new Date(),
         xp: 0,
+        level: 1,
         wealth: 1000,
         balance: {
           money: {
             cash: 1000, // starter money
           },
           assets: { stock: [], etf: [],crypto: [], gold: [] }
-        }
+        },
+        wallpaper: ['default'],
+        transaction: []
       };
 
       // user id
@@ -185,6 +188,7 @@ module.exports = {
             ranks: 'Newbie',
             time: new Date(),
             xp: 0,
+            level: 1,
             wealth: 1000,
             userAvatarUrl: interaction.user.displayAvatarURL() || null,
             balance: {
@@ -192,7 +196,9 @@ module.exports = {
                 cash: 1000, // starter money
               },
               assets: { stock: [], etf: [], crypto: [], gold: [] }
-            }
+            },
+            wallpaper: ['default'],
+            transaction: []
           })
 
           await newData.save().catch(e => {

@@ -31,6 +31,11 @@ const portfolioData = new Schema({
     default: 0
   },
 
+  level: {
+    type: Number,
+    default: 1
+  },
+
   wealth: {
     type: Number,
     default: 1000
@@ -66,6 +71,16 @@ const portfolioData = new Schema({
         default: []
       }
     }
+  },
+
+  wallpaper: {
+    type: Array,
+    default: ['default']
+  },
+
+  transaction: {
+    type: Array,
+    default: []
   }
 })
 

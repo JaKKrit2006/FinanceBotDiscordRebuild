@@ -12,6 +12,8 @@ const { allFields } = require('../../misc/allQuoteFields');
 const { generateChartBuffer } = require('../../misc/chartCapture');
 const { Vibrant } = require("node-vibrant/node");
 
+const portData = require('../../models/portfolioUserData');
+
 const finnhub = require('finnhub');
 const axios = require('axios');
 const sharp = require('sharp');
@@ -104,6 +106,13 @@ module.exports = {
       });
       */
 
+      const result = await yahooFinance.chart(ticker, {
+        period1: '2026-06-05',
+        // period2: '2026-06-06',
+        interval: '5m'  // 1m, 5m, 15m, 1h, 1d, 1wk, 1mo
+      });
+
+      console.log(result);
       // console.log(sumQuote);
 
       if (!quote) {

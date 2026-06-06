@@ -61,7 +61,7 @@ module.exports = {
       const cryptoSymbol = cryptoData.symbol.toUpperCase();
       const cryptoMarketData = cryptoData.market_data;
 
-      console.log(response);
+      // console.log(response);
 
       let cryptoImageSymbol = `COINBASE:${cryptoSymbol}USD`;
       if (cryptoSymbol === 'USDC') {

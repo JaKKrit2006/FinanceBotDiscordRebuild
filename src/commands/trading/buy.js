@@ -490,11 +490,25 @@ module.exports = {
                   volume: Number(volume),
                   cost: Number(totalCostWithFee),
                   date: new Date(), // ? UTC TIME
+                  logoURL: logoURL
+                };
+
+                const txnData = {
+                  symbol: assetSymbol,
+                  volume: Number(volume),
+                  cost: Number(totalCostWithFee),
+                  date: new Date(), // ? UTC TIME
+                  logoURL: logoURL,
+                  type: 'buy'
                 };
 
                 await portData.updateOne(query, {
                   $push : {
                   [`balance.assets.${assetType.toLowerCase()}`]: payloadData
+                }})
+                await portData.updateOne(query, {
+                  $push : {
+                  ['transaction']: txnData
                 }})
 
                 collector1.stop('done');

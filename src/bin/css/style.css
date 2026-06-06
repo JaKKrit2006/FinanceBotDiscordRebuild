@@ -4,6 +4,80 @@
   padding: 0; 
 }
 
+/* outfit-300 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 300;
+  src: url('../fonts/outfit-v15-latin-300.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* outfit-regular - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  src: url('../fonts/outfit-v15-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* outfit-500 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  src: url('../fonts/outfit-v15-latin-500.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* outfit-600 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  src: url('../fonts/outfit-v15-latin-600.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* outfit-700 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  src: url('../fonts/outfit-v15-latin-700.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* outfit-800 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 800;
+  src: url('../fonts/outfit-v15-latin-800.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* jetbrains-mono-regular - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: url('../fonts/jetbrains-mono-v24-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* jetbrains-mono-500 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  src: url('../fonts/jetbrains-mono-v24-latin-500.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* jetbrains-mono-600 - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  src: url('../fonts/jetbrains-mono-v24-latin-600.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
 :root {
   --bg-base: #0a0a0f;
   --bg-elevated: #111118;
@@ -34,8 +108,8 @@ html, body {
   background: var(--bg-base);
   font-family: 'Outfit', sans-serif;
   color: var(--text-primary);
-  background-image: url('https://scontent.fbkk22-3.fna.fbcdn.net/v/t39.30808-6/707866983_1004104188842474_3203793470653384435_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGPy5u_xbGqodCzhoG7VDLPQyF5wW2L389DIXnBbYvfzxTJEPP5pfDp-IZQqi1PaUz9a75IIinR3GpfnRI8Ru_z&_nc_ohc=wL9MCYyDbegQ7kNvwETyehk&_nc_oc=Adq6-NlgksOXfDSUzk0Ri8xVEywpBk--GjN1g_rI8ARHtWZCKKHGq-pLQfk4Pe1B8au3YioranqFj3DAOcX0hce4&_nc_zt=23&_nc_ht=scontent.fbkk22-3.fna&_nc_gid=-7UzlzU7Ai7zhhgHxG3miA&_nc_ss=7b2a8&oh=00_Af_azj6HGIRxb66GL2eznyD_1j3JLKvJC-REmqEXoTRZtA&oe=6A285650');
-  background-size: cover;
+  /*background-image: url('https://scontent.fbkk22-3.fna.fbcdn.net/v/t39.30808-6/707866983_1004104188842474_3203793470653384435_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGPy5u_xbGqodCzhoG7VDLPQyF5wW2L389DIXnBbYvfzxTJEPP5pfDp-IZQqi1PaUz9a75IIinR3GpfnRI8Ru_z&_nc_ohc=wL9MCYyDbegQ7kNvwETyehk&_nc_oc=Adq6-NlgksOXfDSUzk0Ri8xVEywpBk--GjN1g_rI8ARHtWZCKKHGq-pLQfk4Pe1B8au3YioranqFj3DAOcX0hce4&_nc_zt=23&_nc_ht=scontent.fbkk22-3.fna&_nc_gid=-7UzlzU7Ai7zhhgHxG3miA&_nc_ss=7b2a8&oh=00_Af_azj6HGIRxb66GL2eznyD_1j3JLKvJC-REmqEXoTRZtA&oe=6A285650');
+  */background-size: cover;
 }
 
 /* Subtle background texture */
@@ -106,37 +180,29 @@ body::before {
   width: 100%;
 }
 
-
-.avatar-ring {
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  background: conic-gradient(var(--accent-green) 0%, var(--accent-green) 50%, transparent 10%);
-  z-index: -1;
-  animation: ringRotate 3s linear infinite;
-}
-
-@keyframes ringRotate {
-  to { transform: rotate(360deg); }
+.username {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: -2px;
 }
 
 
 .rank-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 200px;
 }
 
 .rank-row {
-  display: flex;
+  display: inline;
   align-items: center;
   gap: 12px;
 }
 
-.rank-label { color: var(--text-secondary); font-size: 18px; font-weight: 500; }
-.rank-name { color: var(--rank-color); font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
-.rank-level { color: var(--text-secondary); font-size: 18px; font-weight: 500; }
+.rank-label { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+.rank-name { color: var(--rank-color); font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+.rank-level { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
 
 .xp-bar-wrap {
   position: relative;
@@ -157,16 +223,23 @@ body::before {
   transform-origin: left;
 }
 
+/*
 @keyframes xpFill {
   from { width: 0; }
   to { width: 50%; }
 }
+*/
 
 .xp-text {
   font-family: 'JetBrains Mono', monospace;
   font-size: 14px;
   color: var(--text-primary);
   margin-top: 2px;
+}
+
+.time-create {
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .main-value-block {
@@ -176,7 +249,7 @@ body::before {
 }
 
 .portfolio-value {
-  font-size: 48px;
+  font-size: 56px;
   font-weight: 800;
   letter-spacing: -1.5px;
   line-height: 1;
@@ -420,7 +493,7 @@ body::before {
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 24px 28px;
+  padding: 18px 28px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -512,7 +585,7 @@ body::before {
 }
 
 .asset-row-item {
-  padding: 6px 18px;
+  padding: 9px 18px;
   background: rgba(240, 240, 248, 0.01);
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 12px;
