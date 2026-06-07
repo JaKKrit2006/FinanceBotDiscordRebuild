@@ -1,4 +1,4 @@
-const http = require('http');
+const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
@@ -8,30 +8,22 @@ const puppeteer = require('puppeteer');
  * @returns {Promise<Buffer>}
  */
 async function generateChartBuffer(symbol = 'AAPL') {
-    const PORT = 3000;
+    const PORT = 8989;
     let server;
+    const app = express();
 
-    const serverPromise = new Promise((resolve, reject) => {
-        server = http.createServer((req, res) => {
-            const reqUrl = new URL(req.url, `http://localhost:${PORT}`);
-            
-            if (reqUrl.pathname === '/' || reqUrl.pathname === '/chart') {
-                fs.readFile(path.join(__dirname, '..', 'bin', 'html', 'chart.html'), (err, content) => {
-                    if (err) {
-                        res.writeHead(500);
-                        res.end('Error loading chart.html');
-                    } else {
-                        res.writeHead(200, { 'Content-Type': 'text/html' });
-                        res.end(content);
-                    }
-                });
-            } else {
-                res.writeHead(404);
-                res.end('Not Found');
+    // จัดการ Route ด้วย Express
+    app.get(['/', '/chart'], (req, res) => {
+        const filePath = path.join(__dirname, '..', 'bin', 'html', 'chart.html');
+        res.sendFile(filePath, (err) => {
+            if (err) {
+                res.status(500).send('Error loading chart.html');
             }
         });
+    });
 
-        server.listen(PORT, () => {
+    const serverPromise = new Promise((resolve, reject) => {
+        server = app.listen(PORT, () => {
             resolve();
         });
 
@@ -41,6 +33,7 @@ async function generateChartBuffer(symbol = 'AAPL') {
     });
 
     try {
+        // รอให้ Server เริ่มทำงาน
         await serverPromise;
 
         const browser = await puppeteer.launch({ headless: "new" });
@@ -52,20 +45,29 @@ async function generateChartBuffer(symbol = 'AAPL') {
             waitUntil: 'networkidle2' 
         });
         
+        // รอให้กราฟเรนเดอร์เสร็จ
         await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // ถ่ายภาพหน้าจอ
         const imageBuffer = await page.screenshot({ encoding: 'binary' });
         
+        // ปิด Browser และ Server
         await browser.close();
         await new Promise((resolve) => server.close(resolve));
 
+        // บันทึกไฟล์และคืนค่า Buffer
+        fs.writeFileSync('output1.png', imageBuffer);
         return imageBuffer;
 
     } catch (error) {
+        // จัดการปิด Server หากเกิดข้อผิดพลาด
         if (server && server.listening) {
             await new Promise((resolve) => server.close(resolve));
         }
         throw error;
     }
 }
+
+generateChartBuffer();
 
 module.exports = { generateChartBuffer };
