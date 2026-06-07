@@ -1,4 +1,4 @@
-const { ApplicationCommandOptionType, EmbedBuilder, Client, Interaction, Message, MessageFlags, time} = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, Client, Interaction, Message, MessageFlags, time, AttachmentBuilder} = require('discord.js');
 const portData = require('../../models/portfolioUserData');
 const { capturePortfolio } = require('../../misc/portCapture');
 
@@ -15,33 +15,6 @@ const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
 // gold spot
 const axios = require('axios');
 const goldUrl = 'https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD';
-
-// colors image
-const { Vibrant } = require("node-vibrant/node");
-const sharp = require('sharp');
-
-async function getColorImage(imageUrl) {
-  try {
-    // load image to buffer
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-
-    // convert PNG buffer before feed to Vibrant
-    const pngBuffer = await sharp(response.data).png().toBuffer();
-    const palette = await Vibrant.from(pngBuffer).getPalette();
-
-    // debug
-    //console.log(palette);
-
-    const rgb = palette.LightVibrant._rgb;
-    const hex = '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-    
-    return hex || "#000000";
-    
-  } catch (err) {
-    console.error(err);
-    return "#000000";
-  }
-}
 
 
 function formatToGMT7(dateStr) {
@@ -227,8 +200,12 @@ module.exports = {
         }
 
         // ! Create port image here
-        //await capturePortfolio(interaction);
-        await interaction.editReply(`test`);
+        const portBuffer = await capturePortfolio(interaction);
+        const attachment2 = new AttachmentBuilder(portBuffer, { name: 'port.png' });
+        
+        await interaction.editReply({
+          files: [ attachment2 ]
+        });
       }
 
       // reset portfolio's data

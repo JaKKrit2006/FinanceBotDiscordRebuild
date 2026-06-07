@@ -13,6 +13,10 @@ dayjs.extend(timezone);
 
 const portData = require('../models/portfolioUserData');
 
+// yahoo
+const YahooFinance = require('yahoo-finance2').default;
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
 /**
  * @param {Array<{ date: string, value: number }>} data
  * @param {Date} [now]
@@ -98,6 +102,19 @@ function formatTickLabel(tick, intervalHours) {
   });
 }
 
+function mergeSymbol(dataArray) {
+  const merged = dataArray.reduce((acc, item) => {
+    if (acc[item.symbol]) {
+      acc[item.symbol].volume += item.volume;
+      acc[item.symbol].cost += item.cost;
+    } else {
+      acc[item.symbol] = { ...item };
+    }
+    return acc;
+  }, {});
+
+  return Object.values(merged);
+}
 
 
 async function capturePortfolio(interaction) {
@@ -173,46 +190,170 @@ async function capturePortfolio(interaction) {
   xpBarFill.style.width = `${xp/totalXp * 100}%`;
 
   const timeCreate = doc.querySelector('.time-create');
-  timeCreate.innerHTML = `Create at ⏰ ${formattedDate} ICT`;
+  timeCreate.innerHTML = `Create at ⏰ ${formattedDate}`;
 
+  // ? Wallpaper
+  const wallpaper = userData.wallpaper;
+  const bodyElement = doc.body;
+
+  if (wallpaper[0] === 'default') {
+    bodyElement.style.backgroundImage = '';
+  } else {
+    bodyElement.style.backgroundImage = `url('https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/image/${wallpaper[0]}.jpg')`;
+  }
 
   // ? portfolio header
+  const stockArray = userData.balance.assets?.stock ?? [];
+  const etfArray   = userData.balance.assets?.etf   ?? [];
+  const cryptoArray = userData.balance.assets?.crypto ?? [];
+  const goldArray  = userData.balance.assets?.gold  ?? [];
+
+  const mergeStock  = mergeSymbol(stockArray);
+  const mergeEtf    = mergeSymbol(etfArray);
+  const mergeCrypto = mergeSymbol(cryptoArray);
+  const mergeGold   = mergeSymbol(goldArray);
+
+  const calcTotalCost = (asset) => {
+    return Math.round(asset.reduce((sum, a) => sum + (a.cost ?? 0), 0) * 100) / 100;
+  };
+
+  const SYMBOL_MAP = {
+    'GOLD': 'GC=F',
+  };
+
+  const toYahooSymbol    = (symbol) => SYMBOL_MAP[symbol] ?? symbol;
+  const toOriginalSymbol = (yahooSymbol) =>
+    Object.keys(SYMBOL_MAP).find(k => SYMBOL_MAP[k] === yahooSymbol) ?? yahooSymbol;
+
+  const allAssetSymbol = [
+    ...mergeStock.map(a => a.symbol),
+    ...mergeEtf.map(a => a.symbol),
+    ...mergeCrypto.map(a => `${a.symbol}-USD`),
+    ...mergeGold.map(a => toYahooSymbol(a.symbol)),
+  ];
+
+  // Guard: ถ้าไม่มีสินทรัพย์เลย ข้ามการ fetch ทั้งหมด
+  let priceMap = {};
+
+  if (allAssetSymbol.length > 0) {
+    const rawResults = await yahooFinance.quote(allAssetSymbol);
+    // quote() อาจคืน object เดี่ยวถ้ามีแค่ 1 symbol — normalize ให้เป็น array เสมอ
+    const results = Array.isArray(rawResults) ? rawResults : [rawResults];
+
+    // console.log(results);
+
+    priceMap = Object.fromEntries(
+      results
+        .filter(q => q?.symbol)   // กรอง null/undefined ออก
+        .map(q => [toOriginalSymbol(q.symbol), {
+          price:          q.regularMarketPrice      ?? 0,
+          change:         q.regularMarketChange     ?? 0,
+          changePct:      q.regularMarketChangePercent ?? 0,
+          fiftyTwoChange: q.fiftyTwoWeekChangePercent ?? 0,
+          shortName:       q.shortName ?? 'None',
+        }])
+    );
+  }
+
+  const calcWealth = (assets, isCrypto = false) =>
+    assets.reduce((sum, asset) => {
+      const key   = isCrypto ? `${asset.symbol}-USD` : asset.symbol;
+      const price = priceMap[key]?.price ?? 0;
+      return sum + asset.volume * price;
+    }, 0);
+
+  const calcTodayProfit = (assets, isCrypto = false) =>
+    assets.reduce((sum, asset) => {
+      const key    = isCrypto ? `${asset.symbol}-USD` : asset.symbol;
+      const change = priceMap[key]?.change ?? 0;
+      return sum + change * asset.volume;
+    }, 0);
+
+  const totalSpend =
+    calcTotalCost(mergeStock) +
+    calcTotalCost(mergeEtf)   +
+    calcTotalCost(mergeCrypto) +
+    calcTotalCost(mergeGold);
+
+  const calcAnnualYield = (assets, isCrypto = false) => {
+    // ถ้า totalSpend = 0 (มีแต่ cash) คืน 0 เพื่อป้องกัน division ผิดพลาด
+    if (totalSpend === 0) return 0;
+
+    return assets.reduce((sum, asset) => {
+      const key            = isCrypto ? `${asset.symbol}-USD` : asset.symbol;
+      const ratio          = (asset.cost ?? 0) / totalSpend;
+      const fiftyTwoChange = priceMap[key]?.fiftyTwoChange ?? 0;
+      return sum + ratio * fiftyTwoChange;
+    }, 0);
+  };
+
+  const stockWealth  = calcWealth(mergeStock);
+  const etfWealth    = calcWealth(mergeEtf);
+  const cryptoWealth = calcWealth(mergeCrypto, true);
+  const goldWealth   = calcWealth(mergeGold);
+
+  let totalWealth  = stockWealth + etfWealth + cryptoWealth + goldWealth;
+
+  const todayProfit  =
+    calcTodayProfit(mergeStock) +
+    calcTodayProfit(mergeEtf)   +
+    calcTodayProfit(mergeCrypto, true) +
+    calcTodayProfit(mergeGold);
+
+  const annualPctChange =
+    calcAnnualYield(mergeStock) +
+    calcAnnualYield(mergeEtf)   +
+    calcAnnualYield(mergeCrypto, true) +
+    calcAnnualYield(mergeGold);
+
+
+  const formatNumber = (num) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+  const moneyUser = userData.balance.money.cash;
+  totalWealth = Math.round(totalWealth * 100) / 100;
+
+  const portChangeValue = totalWealth - totalSpend;
+  const startMoney = 1000;
+  const valueChangeAllTime = totalWealth + moneyUser - startMoney;
+
   const portValue = doc.querySelector('.portfolio-value');
-  portValue.innerHTML = '$1,234.23';
+  portValue.innerHTML = `$${formatNumber(totalWealth + moneyUser)}`;
 
-  const portChange = doc.querySelector('.portfolio-change-all');
-  portChange.innerHTML = '+$52.22';
-
-  const portChangeAllTime = doc.querySelector('.portfolio-change-all-time');
-  portChangeAllTime.innerHTML = '(1.23% All Time)';
+  const portChange = doc.querySelector('.portfolio-change');
+  portChange.innerHTML = `
+  <div class="portfolio-change-all">${valueChangeAllTime > 0 ? '+' : '-'}$${formatNumber(Math.abs(valueChangeAllTime))}</div>
+  <div class="portfolio-change-all-time">(${(((totalWealth + moneyUser)/startMoney - 1) * 100).toFixed(2)}% All time)</div>
+  `
+  portChange.classList.add(valueChangeAllTime > 0 ? 'change-positive' : 'change-negative');
 
   // ? portfolio header right
   const profitValue = doc.querySelectorAll('.stat-value');
-  profitValue[0].innerHTML = '$9,999.99'; // Profit
-  profitValue[1].innerHTML = '5.00%';     // Yield%
-  profitValue[2].innerHTML = '$0.00';   // Dividend
+  profitValue[0].innerHTML = `${portChangeValue > 0 ? '' : '-'}$${formatNumber(Math.abs(portChangeValue))}`; // Profit
+  profitValue[1].innerHTML = `${annualPctChange.toFixed(2)}%`;     // Yield%
+  profitValue[2].innerHTML = '$0.00';           // Dividend
+  profitValue[3].innerHTML = `$${moneyUser.toFixed(2)}`;   // Cash
 
   const statSub = doc.querySelectorAll('.stat-sub');
-  statSub[0].innerHTML = `Today +$85.23 (9.23%)`; // Profit 1D %
+  statSub[0].innerHTML = `Today ${todayProfit > 0 ? '+' : '-'}$${formatNumber(Math.abs(todayProfit))} (${((totalWealth/(totalWealth - (todayProfit || 0)) - 1) * 100).toFixed(2)}%)`; // Profit 1D %
+  statSub[0].classList.add(todayProfit > 0 ? 'change-positive' : 'change-negative');
   statSub[2].innerHTML = `0.00% (1Y) WIP`; // Dividend %
 
 
   // ? Assets Ratio
-  let stockRatio = 0.58;
-  let etfRatio = 0.12;
-  let cryptoRatio = 0.1;
-  let goldRatio = 0.1;
-  let cashRatio = 0.1
+  let stockRatio  = stockWealth/(totalWealth + moneyUser);
+  let etfRatio    = etfWealth/(totalWealth + moneyUser);
+  let cryptoRatio = cryptoWealth/(totalWealth + moneyUser);
+  let goldRatio   = goldWealth/(totalWealth + moneyUser);
+  let cashRatio   = moneyUser/(totalWealth + moneyUser);
 
   const legendPct = doc.querySelectorAll('.legend-pct');
-  legendPct[0].innerHTML = `${(stockRatio * 100).toFixed(1)}%`; // Stock
-  legendPct[1].innerHTML = `${(etfRatio * 100).toFixed(1)}%`; // Etf
+  legendPct[0].innerHTML = `${(stockRatio * 100).toFixed(1)}%`;  // Stock
+  legendPct[1].innerHTML = `${(etfRatio * 100).toFixed(1)}%`;    // Etf
   legendPct[2].innerHTML = `${(cryptoRatio * 100).toFixed(1)}%`; // Crypto
-  legendPct[3].innerHTML = `${(goldRatio * 100).toFixed(1)}%`; // Gold
-  legendPct[4].innerHTML = `${(cashRatio * 100).toFixed(1)}%`; // Cash
+  legendPct[3].innerHTML = `${(goldRatio * 100).toFixed(1)}%`;   // Gold
+  legendPct[4].innerHTML = `${(cashRatio * 100).toFixed(1)}%`;   // Cash
 
   const pieTotalValue = doc.querySelector('.pie-total');
-  pieTotalValue.innerHTML = '$1.23K';
+  pieTotalValue.innerHTML = `${formatAxisLabel(totalWealth + moneyUser)}`;
 
   // ? Pie Chart
   const circumference = 490.09; // R=78
@@ -228,94 +369,163 @@ async function capturePortfolio(interaction) {
   const pieGold = doc.querySelector('.pie-gold');
   const pieCash = doc.querySelector('.pie-cash');
 
-  pieStock.setAttribute('stroke-dasharray', `${stockDash} ${circumference}`);
+  pieStock.setAttribute('stroke-dasharray',  `${stockDash} ${circumference}`);
   pieStock.setAttribute('stroke-dashoffset', '0');
 
+  pieEtf.setAttribute('stroke-dasharray',    `${etfDash} ${circumference}`);
+  pieEtf.setAttribute('stroke-dashoffset',   `${-(stockDash)}`);
+
   pieCrypto.setAttribute('stroke-dasharray', `${cryptoDash} ${circumference}`);
-  pieCrypto.setAttribute('stroke-dashoffset', `${-stockDash}`);
+  pieCrypto.setAttribute('stroke-dashoffset',`${-(stockDash + etfDash)}`);
 
-  pieEtf.setAttribute('stroke-dasharray', `${etfDash} ${circumference}`);
-  pieEtf.setAttribute('stroke-dashoffset', `${-(stockDash + cryptoDash)}`);
+  pieGold.setAttribute('stroke-dasharray',   `${goldDash} ${circumference}`);
+  pieGold.setAttribute('stroke-dashoffset',  `${-(stockDash + etfDash + cryptoDash)}`);
 
-  pieGold.setAttribute('stroke-dasharray', `${goldDash} ${circumference}`);
-  pieGold.setAttribute('stroke-dashoffset', `${-(stockDash + cryptoDash + etfDash)}`);
-
-  pieCash.setAttribute('stroke-dasharray', `${cashDash} ${circumference}`);
-  pieCash.setAttribute('stroke-dashoffset', `${-(stockDash + cryptoDash + etfDash + goldDash)}`);
+  pieCash.setAttribute('stroke-dasharray',   `${cashDash} ${circumference}`);
+  pieCash.setAttribute('stroke-dashoffset',  `${-(stockDash + etfDash + cryptoDash + goldDash)}`);
 
   // ? Transcation History
-  let symbol = '';
-  let statsTrans = ''; // buy sell div
-  let transPayload = `
-    <div class="txn-item sell">
-      <div class="txn-left">
-        <span class="txn-ticker">NVDA</span>
-        <span class="txn-detail">-0.152456 Shares (4 Jun 2026)</span>
-      </div>
-      <div class="txn-right">
-        <span class="txn-amount positive">+$23.12</span>
-        <span class="txn-badge sell">Sell</span>
-      </div>
-    </div>
-  `;
-
+  const txnListData = userData.transaction;
   const txnList = doc.querySelector('.txn-list');
-  txnList.replaceChildren(); // ! if have transaction
-  txnList.innerHTML += transPayload;
 
-  // ? Top Assets
-  let payloadAssets = `
-    <div class="asset-row-item assets-master-grid-layout">
-        <div class="asset-main-info">
-            <img class="asset-icon" src="https://img.logo.dev/ticker/NVDA?token=pk_fwZXSnJzRW6AO037_JMVkg&retina=true">
-            <div>
-                <div class="asset-name">NVDA</div>
-                <div class="asset-full">NVIDIA Corp.</div>
-            </div>
+  if (txnListData.length !== 0) {
+    txnList.replaceChildren(); // ! if have transaction
+
+    let maxLength = txnListData.length;
+    if (maxLength >= 6) {
+      maxLength = 6;
+    } 
+
+    for (let i = 0; i < maxLength; i++) {
+      const txnLength = txnListData.length;
+      let symbol       = txnListData[txnLength - i - 1].symbol;
+      let volume       = txnListData[txnLength - i - 1].volume;
+      let cost         = txnListData[txnLength - i - 1].cost;
+      let dateTxn      = txnListData[txnLength - i - 1].date;
+      let statsTxn     = txnListData[txnLength - i - 1].type; // buy sell div
+      let assetTypeTxn = txnListData[txnLength - i - 1].assetType; // buy sell div
+
+      let assetTypeText = '';
+
+      if (assetTypeTxn === 'stock' || assetTypeTxn === 'etf') { assetTypeText = 'Shares' };
+      if (assetTypeTxn === 'crypto') { assetTypeText = 'Coins' };
+      if (assetTypeTxn === 'gold') { assetTypeText = 'Oz' };
+
+      const formattedDate = dayjs(dateTxn)
+        .tz('Asia/Bangkok')
+        .format('(DD MMM YYYY)');
+
+      let transPayload = `
+        <div class="txn-item ${statsTxn}">
+          <div class="txn-left">
+            <span class="txn-ticker">${symbol}</span>
+            <span class="txn-detail">${statsTxn === 'buy' ? '+' : '-'}${volume} ${assetTypeText} ${formattedDate}</span>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount ${statsTxn === 'buy' ? 'negative' : 'positive'}">${statsTxn === 'buy' ? '-' : '+'}$${cost}</span>
+            <span class="txn-badge ${statsTxn}">${statsTxn.toUpperCase()}</span>
+          </div>
         </div>
-        <div class="asset-data-cell asset-price-text text-muted-cell">$1,208.45</div>
-        <div class="asset-data-cell asset-volume-text text-muted-cell">12.256487</div>
-        <div class="asset-data-cell asset-value-text text-muted-cell">$42,850</div>
-        <div class="asset-data-cell asset-change-text change-positive">+3.24%</div>
-        <div class="asset-data-cell asset-profit change-negative">
-          <div class="asset-profit-text">-$232.12</div>
-          <div class="asset-profit-pct">(-23.45%)</div>
-        </div>
-        <div class="asset-data-cell">
-            <div class="alloc-bar-wrap">
-                <span class="text-muted-cell alloc-text" style="font-family:'JetBrains Mono',monospace;">27.4%</span>
-                <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:27%;background:#76b900;"></div></div>
-            </div>
-        </div>
-    </div>
-  `;
+      `;
+
+      txnList.innerHTML += transPayload;
+    }
+  }
+  
+
+  // ? Top Asset
+  const calcWealthBySymbol = (assets, isCrypto = false) =>
+    assets.map(asset => {
+      const key   = isCrypto ? `${asset.symbol}-USD` : asset.symbol;
+      const price = priceMap[key]?.price ?? 0;
+      const name = priceMap[key]?.shortName ?? 'None';
+      const change1D = priceMap[key]?.change ?? 0;
+      const change1DPct = priceMap[key]?.changePct ?? 0;
+      const ratio = (asset.volume * price)/totalWealth
+
+      return {
+        symbol: asset.symbol,
+        value:  asset.volume * price,
+        logoURL: asset.logoURL,
+        shortName: name,
+        marketPrice: price,
+        volume: asset.volume,
+        cost: asset.cost,
+        change: change1D,
+        changePct: change1DPct,
+        ratio: ratio
+      };
+    });
+
+  const allWealthBySymbol = [
+    ...calcWealthBySymbol(mergeStock),
+    ...calcWealthBySymbol(mergeEtf),
+    ...calcWealthBySymbol(mergeCrypto, true),
+    ...calcWealthBySymbol(mergeGold),
+  ].sort((a, b) => b.value - a.value);
+
+  // console.log(allWealthBySymbol);
 
   const assetList = doc.querySelector('.asset-list-container');
-  // assetList.replaceChildren();
-  // assetList.innerHTML += payloadAssets;
 
-  const symbolName = doc.querySelectorAll('.asset-name');
-  const symbolFullName = doc.querySelectorAll('.asset-full');
-  const symbolLogo = doc.querySelectorAll('.asset-icon');
+  if (allWealthBySymbol.length !== 0) {
 
-  const priceText = doc.querySelectorAll('.asset-price-text');
-  const volumeText = doc.querySelectorAll('.asset-volume-text');
-  const valueText = doc.querySelectorAll('.asset-value-text');
-  const changeText = doc.querySelectorAll('.asset-change-text');
-  const profitText = doc.querySelectorAll('.asset-profit-text');
-  const profitPct = doc.querySelectorAll('.asset-profit-pct');
-  const allocText = doc.querySelectorAll('.alloc-text');
-  const allocBar = doc.querySelectorAll('.alloc-bar-fill');
+    // ! Delete all element
+    assetList.replaceChildren();
 
-  // Example
-  priceText[0].innerHTML = '$124.23';
-  priceText[1].innerHTML = '$324.83';
+    let maxSymbol = allWealthBySymbol.length;
+    if (allWealthBySymbol.length >= 5) {
+      maxSymbol = 5;
+    } 
 
-  allocText[0].innerHTML = '65.2%';
-  allocText[1].innerHTML = '34.8';
-  allocBar[0].style.width = '65.2%';
-  allocBar[1].style.width = '34.8%';
+    let html = '';
 
+    for(let i = 0; i < maxSymbol; i++) {
+      const value = allWealthBySymbol[i].value;
+      const cost = allWealthBySymbol[i].cost
+      const profit = value - cost;
+      const change = allWealthBySymbol[i].change;
+      const changePct = allWealthBySymbol[i].changePct;
+
+      let payloadAssets = `
+        <div class="asset-row-item assets-master-grid-layout">
+            <div class="asset-main-info">
+                <img class="asset-icon" src=${allWealthBySymbol[i].logoURL}>
+                <div>
+                    <div class="asset-name">${allWealthBySymbol[i].symbol}</div>
+                    <div class="asset-full">${allWealthBySymbol[i].shortName}</div>
+                </div>
+            </div>
+            <div class="asset-data-cell asset-price-text text-muted-cell">$${formatNumber(allWealthBySymbol[i].marketPrice)}</div>
+            <div class="asset-data-cell asset-volume-text text-muted-cell">${allWealthBySymbol[i].volume}</div>
+            <div class="asset-data-cell asset-value-text text-muted-cell">$${formatNumber(allWealthBySymbol[i].value)}</div>
+            <div class="asset-data-cell asset-change-text ${change > 0 ? 'change-positive' : 'change-negative'}">
+              <div class="asset-profit-text">${change > 0 ? '+' : '-'}$${formatNumber(Math.abs(change))}</div>
+              <div class="asset-profit-pct">(${changePct.toFixed(2)}%)</div>
+            </div>
+            <div class="asset-data-cell asset-profit ${profit > 0 ? 'change-positive' : 'change-negative'}">
+              <div class="asset-profit-text">${profit > 0 ? '+' : '-'}$${formatNumber(Math.abs(profit))}</div>
+              <div class="asset-profit-pct">(${((value/cost - 1) * 100).toFixed(2)}%)</div>
+            </div>
+            <div class="asset-data-cell">
+                <div class="alloc-bar-wrap">
+                    <span class="text-muted-cell alloc-text" style="font-family:'JetBrains Mono',monospace;">${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%;background:#76b900;"></div></div>
+                </div>
+            </div>
+        </div>
+      `;
+
+      html += payloadAssets;
+    }
+
+    assetList.innerHTML = html;
+  }
+
+
+  // ? Graph Time
+  const graphTime = doc.querySelector('.graph-time');
+  graphTime.innerHTML = `⏰ ${dayjs(new Date()).tz('Asia/Bangkok').format('HH:mm, DD MMM YYYY')} ICT`;
   
   // ? Graph
   let minValue = 500;
@@ -462,7 +672,7 @@ async function capturePortfolio(interaction) {
 
   await page.goto("http://localhost:3099", { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   const screenshot = await page.screenshot({
     type: "png",
@@ -472,8 +682,8 @@ async function capturePortfolio(interaction) {
   await browser.close();
   server.close();
   
-  console.log('done');
-  fs.writeFileSync("output.png", screenshot); // เพิ่มบรรทัดนี้
+  // console.log('done');
+  // fs.writeFileSync("output.png", screenshot); // เพิ่มบรรทัดนี้
 
   return screenshot;
 }

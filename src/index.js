@@ -14,6 +14,9 @@ const client = new Client({
     IntentsBitField.Flags.GuildPresences,
     IntentsBitField.Flags.GuildVoiceStates
   ],
+  rest: { 
+    timeout: 30000 
+  }
 });
 
 (async () => {

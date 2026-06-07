@@ -268,8 +268,12 @@ body::before {
   gap: 6px;
 }
 
-.portfolio-change::before {
+.portfolio-change.change-positive::before {
   content: '▲';
+  font-size: 10px;
+}
+.portfolio-change.change-negative::before {
+  content: '▼';
   font-size: 10px;
 }
 
@@ -298,20 +302,27 @@ body::before {
   background: var(--bg-card-hover);
 }
 
+/*
 .stat-card:nth-child(1) { animation-delay: 0.1s; }
 .stat-card:nth-child(2) { animation-delay: 0.2s; }
 .stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.3s; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
+*/
 .stat-label { font-size: 12px; color: var(--text-primary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; }
 .stat-value { font-size: 22px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
 .stat-sub { font-size: 12px; font-weight: 500; }
+/*
 .stat-sub.green { color: var(--accent-green); }
+*/
 .stat-sub.muted { color: var(--text-secondary); }
+
+.stat-sub.change-negative {font-size: 12px; color: var(--accent-red); text-align: left;}
+.stat-sub.change-positive {font-size: 12px; color: var(--accent-green); text-align: left;}
 
 /* ─── SIDEBAR ─── */
 .sidebar {
@@ -522,13 +533,13 @@ body::before {
 }
 
 .chart-grid-line {
-  stroke: var(--border, #1e1e2a);
+  stroke: var(--scrollbar);
   stroke-width: 1;
 }
 
 .chart-grid-line-v {
-  stroke: var(--border, #1e1e2a);
-  stroke-width: 2;
+  stroke: var(--scrollbar);
+  stroke-width: 1;
 }
 
 /* ตัวหนังสือบอกจำนวนเงินฝั่งซ้าย (แกน Y) */
@@ -629,8 +640,8 @@ body::before {
   text-align: right;
 }
 
-.change-positive { color: var(--accent-green); text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700;}
-.change-negative { color: var(--accent-red); text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700;}
+.change-positive { color: var(--accent-green); text-align: right; font-size: 16px; font-weight: 700;}
+.change-negative { color: var(--accent-red); text-align: right; font-size: 16px; font-weight: 700;}
 .text-muted-cell {
   color: var(--text-secondary);
   font-family: 'JetBrains Mono', monospace;

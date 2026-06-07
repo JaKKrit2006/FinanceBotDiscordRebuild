@@ -10,7 +10,6 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
 
 const { allFields } = require('../../misc/allQuoteFields');
 const { generateChartBuffer } = require('../../misc/chartCapture');
-const { Vibrant } = require("node-vibrant/node");
 
 const portData = require('../../models/portfolioUserData');
 
@@ -60,20 +59,7 @@ module.exports = {
       const quote = await yahooFinance.quote(ticker, {
         fields: allFields.fields
       });
-      /*
-      const sumQuote = await yahooFinance.quoteSummary(ticker, {
-        modules: ['price', 'summaryProfile', 'assetProfile', 'summaryDetail', 'defaultKeyStatistics', 'calendarEvents', 'earnings', 'financialData', 'indexTrend', 'upgradeDowngradeHistory']
-      });
-
-      const result = await yahooFinance.chart(ticker, {
-        period1: '2026-06-05',
-        // period2: '2026-06-06',
-        interval: '5m'  // 1m, 5m, 15m, 1h, 1d, 1wk, 1mo
-      });
-
-      console.log(result);
-      // console.log(sumQuote);
-      */
+      
       if (!quote) {
         return await interaction.editReply(`:x: There was no TICKER:**${ticker}** in the data system.`);
       }
@@ -140,7 +126,7 @@ module.exports = {
       }
       
       const chartBuffer = await generateChartBuffer(tickerForChart);
-      const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+      const attachment2 = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
       // create componentV2
       const stockContainer = new ContainerBuilder();
@@ -163,7 +149,7 @@ module.exports = {
       const media1 = new MediaGalleryBuilder()
         .addItems(
           new MediaGalleryItemBuilder()
-            .setURL('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
+            .setURL('attachment://chart.png' || 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
         );
       stockContainer.addMediaGalleryComponents(media1);
 
@@ -192,7 +178,7 @@ module.exports = {
       await interaction.editReply({
         components: [stockContainer],
         flags: MessageFlags.IsComponentsV2,
-        // files: [attachment]
+        files: [ attachment2 ]
       });
 
     }

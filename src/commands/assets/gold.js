@@ -33,7 +33,7 @@ module.exports = {
       const timeStr = new Date().toLocaleString('en-US', { hour12: true, timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
 
       const chartBuffer = await generateChartBuffer(`OANDA:XAUUSD`);
-      const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+      const attachment2 = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
       // create componentV2
       const goldContainer = new ContainerBuilder();
@@ -56,7 +56,7 @@ module.exports = {
       const media1 = new MediaGalleryBuilder()
         .addItems(
           new MediaGalleryItemBuilder()
-            .setURL('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
+            .setURL('attachment://chart.png' || 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
         );
       goldContainer.addMediaGalleryComponents(media1);
 
@@ -85,7 +85,7 @@ module.exports = {
       await interaction.editReply({
         components: [ goldContainer ],
         flags: MessageFlags.IsComponentsV2,
-        // files: [attachment]
+        files: [attachment2]
       });
 
     } catch (error) {

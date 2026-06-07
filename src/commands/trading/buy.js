@@ -31,7 +31,7 @@ const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
 
 
-async function createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv) {
+async function createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, shortName, logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv, money) {
   const summary = new ContainerBuilder()
     .setAccentColor(color) // Lime green
     .addSectionComponents(
@@ -54,7 +54,7 @@ async function createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, 
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **1000$**\n- Inventory: **${amountInv}/10**`)
+          new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **${money}$**\n- Inventory: **${amountInv}/10**`)
         )
         .setThumbnailAccessory(
           new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL({ extension: 'png', size: 512 }))
@@ -343,7 +343,8 @@ module.exports = {
                   return;
                 }
 
-                logoURL = `https://cdn.brandfetch.io/ticker/${assetSymbol}/w/400/h/400?c=${LOGO_API_KEY}`;
+                // https://img.logo.dev/ticker/voo?token=API_KEY
+                logoURL = `https://img.logo.dev/ticker/${assetSymbol}?token=${LOGO_API_KEY}`;
                 amount = Number(amountText);
               }
               // ? Crypto validation
@@ -462,10 +463,10 @@ module.exports = {
             else if (mode === 'volume' && assetType === 'gold') {
               textDetail = `\n- Volume: **${amount}** Oz`;
             }
-
+            const money = data.balance.money.cash;
             // ! function
             const summary = await createBuyOrder(color, assetType, mode, assetSymbol, marketPrice, shortName,
-              logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv);
+              logoURL, textDetail, fee, totalCostWithFee, interaction, amountInv, money);
             
             const response = await interaction.editReply({
               components: [summary],
@@ -484,6 +485,8 @@ module.exports = {
               // ? Confirm Buy
               if (i.customId === 'confirm_purchase') {
                 await i.deferUpdate();
+
+                const money = data.balance.money.cash;
                 
                 const payloadData = {
                   symbol: assetSymbol,
@@ -499,16 +502,18 @@ module.exports = {
                   cost: Number(totalCostWithFee),
                   date: new Date(), // ? UTC TIME
                   logoURL: logoURL,
-                  type: 'buy'
+                  type: 'buy',
+                  assetType: assetType,
                 };
 
                 await portData.updateOne(query, {
                   $push : {
-                  [`balance.assets.${assetType.toLowerCase()}`]: payloadData
+                  [`balance.assets.${assetType.toLowerCase()}`]: payloadData,
+                  ['transaction']: txnData
                 }})
                 await portData.updateOne(query, {
-                  $push : {
-                  ['transaction']: txnData
+                  $set : {
+                  'balance.money.cash': money - totalCostWithFee
                 }})
 
                 collector1.stop('done');

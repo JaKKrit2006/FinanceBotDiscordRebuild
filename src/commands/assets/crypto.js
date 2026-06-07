@@ -7,7 +7,6 @@ const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBui
   MessageFlags, SeparatorSpacingSize, AttachmentBuilder, FileBuilder, MediaGalleryBuilder,
   MediaGalleryItemBuilder, ThumbnailBuilder,  ActionRowBuilder, StringSelectMenuBuilder,
  } = require('discord.js');
-const { Vibrant } = require("node-vibrant/node");
 const { generateChartBuffer } = require('../../misc/chartCapture');
 
 const axios = require('axios');
@@ -69,7 +68,7 @@ module.exports = {
       }
 
       const chartBuffer = await generateChartBuffer(cryptoImageSymbol);
-      const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
+      const attachment2 = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
       // create componentV2
       const cryptoContainer = new ContainerBuilder();
@@ -92,7 +91,7 @@ module.exports = {
       const media1 = new MediaGalleryBuilder()
         .addItems(
           new MediaGalleryItemBuilder()
-            .setURL('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
+            .setURL('attachment://chart.png' || 'https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
         );
       cryptoContainer.addMediaGalleryComponents(media1);
 
@@ -121,7 +120,7 @@ module.exports = {
       await interaction.editReply({
         components: [ cryptoContainer ],
         flags: MessageFlags.IsComponentsV2,
-        // files: [attachment]
+        files: [attachment2]
       });
 
     } catch (error) {
