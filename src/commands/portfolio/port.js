@@ -1,5 +1,6 @@
 const { ApplicationCommandOptionType, EmbedBuilder, Client, Interaction, Message, MessageFlags, time} = require('discord.js');
 const portData = require('../../models/portfolioUserData');
+const { capturePortfolio } = require('../../misc/portCapture');
 
 // yahoo
 const YahooFinance = require('yahoo-finance2').default;
@@ -224,6 +225,9 @@ module.exports = {
           await interaction.editReply(`<@${interaction.user.id}> Sorry, you need to create your portfolio first.`);
           return;
         }
+
+        // ! Create port image here
+        //await capturePortfolio(interaction);
         await interaction.editReply(`test`);
       }
 

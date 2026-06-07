@@ -92,7 +92,7 @@ module.exports = {
       const media1 = new MediaGalleryBuilder()
         .addItems(
           new MediaGalleryItemBuilder()
-            .setURL('attachment://chart.png')
+            .setURL('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
         );
       cryptoContainer.addMediaGalleryComponents(media1);
 
@@ -121,7 +121,7 @@ module.exports = {
       await interaction.editReply({
         components: [ cryptoContainer ],
         flags: MessageFlags.IsComponentsV2,
-        files: [attachment]
+        // files: [attachment]
       });
 
     } catch (error) {

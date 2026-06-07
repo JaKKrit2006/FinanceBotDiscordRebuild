@@ -8,11 +8,10 @@ const puppeteer = require('puppeteer');
  * @returns {Promise<Buffer>}
  */
 async function generateChartBuffer(symbol = 'AAPL') {
-    const PORT = 8989;
+    const PORT = 3000;
     let server;
     const app = express();
 
-    // จัดการ Route ด้วย Express
     app.get(['/', '/chart'], (req, res) => {
         const filePath = path.join(__dirname, '..', 'bin', 'html', 'chart.html');
         res.sendFile(filePath, (err) => {
@@ -33,7 +32,6 @@ async function generateChartBuffer(symbol = 'AAPL') {
     });
 
     try {
-        // รอให้ Server เริ่มทำงาน
         await serverPromise;
 
         const browser = await puppeteer.launch({ headless: "new" });
@@ -41,33 +39,25 @@ async function generateChartBuffer(symbol = 'AAPL') {
         
         await page.setViewport({ width: 1280, height: 720 });
         
-        await page.goto(`http://localhost:${PORT}?symbol=${encodeURIComponent(symbol)}`, { 
+        await page.goto(`http://localhost:${PORT}?symbol=${symbol}`, { 
             waitUntil: 'networkidle2' 
         });
         
-        // รอให้กราฟเรนเดอร์เสร็จ
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // ถ่ายภาพหน้าจอ
         const imageBuffer = await page.screenshot({ encoding: 'binary' });
         
-        // ปิด Browser และ Server
         await browser.close();
         await new Promise((resolve) => server.close(resolve));
-
-        // บันทึกไฟล์และคืนค่า Buffer
-        fs.writeFileSync('output1.png', imageBuffer);
+        // fs.writeFileSync('output1.png', imageBuffer);
         return imageBuffer;
 
     } catch (error) {
-        // จัดการปิด Server หากเกิดข้อผิดพลาด
         if (server && server.listening) {
             await new Promise((resolve) => server.close(resolve));
         }
         throw error;
     }
 }
-
-generateChartBuffer();
 
 module.exports = { generateChartBuffer };

@@ -14,10 +14,14 @@ const { Vibrant } = require("node-vibrant/node");
 
 const portData = require('../../models/portfolioUserData');
 
+/*
 const finnhub = require('finnhub');
 const axios = require('axios');
-const sharp = require('sharp');
+
 const util = require('util');
+*/
+const fs = require('fs');
+const sharp = require('sharp');
 
 // yahoo
 const YahooFinance = require('yahoo-finance2').default;
@@ -27,50 +31,6 @@ const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 // Promisify Finnhub methods
 //const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
-
-async function getColorImage(imageUrl) {
-  try {
-    // load image to buffer
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    // convert PNG buffer before feed to Vibrant
-    const pngBuffer = await sharp(response.data).png().toBuffer();
-    const palette = await Vibrant.from(pngBuffer).getPalette();
-    // debug
-    //console.log(palette);
-    const rgb = palette.LightVibrant._rgb;
-    const hex = '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-    
-    return hex || "#000000";
-  } catch (err) {
-    console.error(err);
-    return "#000000";
-  }
-}
-
-function formatToGMT7(dateStr) {
-  
-  if (dateStr.length === 0 && Array.isArray(dateStr)) { // if it doesn't have earning date and it has to be array
-    return `No Deadline Yet.`;
-  }
-
-  const utcDate = new Date(dateStr);
-  const timeStr = utcDate.toLocaleTimeString('en-US', {
-    hour12: true,
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'Asia/Bangkok'
-  });
-
-  const dateStrFormatted = utcDate.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Bangkok'
-  }).replace(/ /g, ' '); // → "19 Nov 2025"
-
-  return `${timeStr} | ${dateStrFormatted}`;
-}
-
 
 // start module
 module.exports = {
@@ -104,7 +64,6 @@ module.exports = {
       const sumQuote = await yahooFinance.quoteSummary(ticker, {
         modules: ['price', 'summaryProfile', 'assetProfile', 'summaryDetail', 'defaultKeyStatistics', 'calendarEvents', 'earnings', 'financialData', 'indexTrend', 'upgradeDowngradeHistory']
       });
-      */
 
       const result = await yahooFinance.chart(ticker, {
         period1: '2026-06-05',
@@ -114,9 +73,34 @@ module.exports = {
 
       console.log(result);
       // console.log(sumQuote);
-
+      */
       if (!quote) {
         return await interaction.editReply(`:x: There was no TICKER:**${ticker}** in the data system.`);
+      }
+
+      let xpText = '';
+      const query = { userId: interaction.user.id }
+      let data = await portData.findOne(query);
+      if (!data) {
+        xpText = `You don't have a **Portfolio**`;
+      }
+      else {
+        const randomXp = Math.floor((Math.random() + 0.5) * 20);
+        xpText = `You got **${randomXp}XP**`;
+
+        await portData.updateOne(query, { $inc: {xp: randomXp} });
+        
+        data = await portData.findOne(query);
+        let lv = data.level;
+        let xp = data.xp;
+        const rankUpXp = Math.floor(50 * (1.2 * lv) * (1.005 ** lv));
+
+        if (xp >= rankUpXp) {
+          xp -= rankUpXp;
+          lv += 1;
+
+          await portData.updateOne(query, { $set: {xp: xp, level: lv} });
+        }
       }
 
       const marketSession = quote.marketState;
@@ -154,6 +138,7 @@ module.exports = {
       if (ticker.includes('-')) {
         tickerForChart = ticker.replace('-', '.'); // for yahoo finance, example: BRK-B → BRK.B
       }
+      
       const chartBuffer = await generateChartBuffer(tickerForChart);
       const attachment = new AttachmentBuilder(chartBuffer, { name: 'chart.png' });
 
@@ -169,7 +154,7 @@ module.exports = {
 
       const textHead = new TextDisplayBuilder()
         .setContent(`## Asset Info!\n:bar_chart: **${ticker} - ${quote.longName}**\n\n`
-          + `**Source**\n- :link: [TradingView](https://www.tradingview.com/)`);
+          + `**Source**\n- :link: [TradingView](https://www.tradingview.com/)\n- :tada: ${xpText}`);
       stockContainer.addTextDisplayComponents(textHead);
 
       const separator1 = new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small);
@@ -178,7 +163,7 @@ module.exports = {
       const media1 = new MediaGalleryBuilder()
         .addItems(
           new MediaGalleryItemBuilder()
-            .setURL('attachment://chart.png')
+            .setURL('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
         );
       stockContainer.addMediaGalleryComponents(media1);
 
@@ -204,25 +189,12 @@ module.exports = {
         .setButtonAccessory(button1);
       stockContainer.addSectionComponents(bottomSection);
 
-      /*
-      feelingEmojiList = [
-        ':wink:', ':yum:', ':relaxed:', ':smiling_face_with_3_hearts:', ':blush:'
-      ];
-
-      contentList = [
-        `ได้แล้วค่ะ ข้อมูลของหุ้น **${ticker}** ยินดีที่ได้บริการค่ะ.`,
-        `นี่ค่ะ… ข้อมูลหุ้น **${ticker}** ที่คุณขอ ฉันเก็บไว้ให้อย่างดีเลย :heart: อย่าลืมพักผ่อนบ้างนะคะ…`,
-        `ได้แล้วนะคะ… ข้อมูลหุ้น **${ticker}** พร้อมส่งมอบให้คุณแล้วค่ะ หวังว่าจะช่วยให้วันนี้ของคุณงดงามยิ่งขึ้นนะ…`,
-        `หุ้น **${ticker}** อยู่ตรงนี้แล้วค่ะ… 🌸 ขอให้คุณเจอแต่โอกาสที่สวยงามนะคะ…`,
-      ]*/
-
-
       await interaction.editReply({
-        // content: `${contentList[Math.floor(Math.random() * (contentList.length - 0.1))]} ${feelingEmojiList[Math.floor(Math.random() * (feelingEmojiList.length - 0.1))]}`,
         components: [stockContainer],
         flags: MessageFlags.IsComponentsV2,
-        files: [ attachment ]
+        // files: [attachment]
       });
+
     }
     
     // Error handling

@@ -189,7 +189,7 @@ module.exports = {
           .setTitle(`💱 Currency Pair: ${mainPair} / ${subPair}`)
           .setColor('Blue')
           .setDescription(`อัตราแลกเปลี่ยนอัปเดต ณ วันที่: \`${updateDate}\``)
-          .setImage('attachment://chart.png')
+          .setImage('https://raw.githubusercontent.com/JaKKrit2006/icon/refs/heads/main/Wallpaper/discord-error.png')
           .setFooter({
             text: `Currency Market | 🗓️ ${new Date().toLocaleString('en-GB', {
                 day: 'numeric', month: 'short', year: 'numeric'
@@ -222,7 +222,7 @@ module.exports = {
         await interaction.editReply({
           content: `${contentList[Math.floor(Math.random() * contentList.length)]} ${feelingEmojiList[Math.floor(Math.random() * feelingEmojiList.length)]}`,
           embeds: [ currecncyEmbed ],
-          files: [attachment]
+          // files: [attachment]
         });
       }
     }

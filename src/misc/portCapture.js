@@ -4,18 +4,14 @@ const fs = require("fs");
 const { JSDOM } = require("jsdom");
 const path = require("path");
 
-/* // ! Requirer Data
-? Profile ---------------
-? Username
-? Rank
-? XP
-? Level
-? Create Date
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-*/
-
-
+const portData = require('../models/portfolioUserData');
 
 /**
  * @param {Array<{ date: string, value: number }>} data
@@ -104,31 +100,47 @@ function formatTickLabel(tick, intervalHours) {
 
 
 
-async function capturePortfolio() {
-  const html = fs.readFileSync('../bin/html/port.html', 'utf-8');
-	const css  = fs.readFileSync('../bin/css/style.css',  'utf-8');
+async function capturePortfolio(interaction) {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'bin', 'html', 'port.html'), 'utf-8');
+  const css  = fs.readFileSync(path.join(__dirname, '..', 'bin', 'css', 'style.css'),  'utf-8');
 
   const dom = new JSDOM(html);
   const doc = dom.window.document;
 
+  /* // ! Requirer Data
+  ? Profile ---------------
+  ? Username
+  ? Rank
+  ? XP
+  ? Level
+  ? Create Date
+
+  ? Value of Assets 
+  ? Profit of All assets All time - 1000(Base money)
+  ? Unrealized profit - profit from holding assets
+  ? Yield Return in 1 Year ago
+  ? Dividend WIP
+
+  */
+
+  // ! User database
+  const query = { userId: interaction.user.id }
+  let userData = await portData.findOne(query);
+
   // ? Profile and XP zone
-  let xp = 152542;
-  let level = 1;
+  let xp = userData.xp;
+  let level = userData.level;
   let totalXp = 0;
   let ranking = '';
-  let profileUsername = 'k1d1an';
+  let profileUsername = interaction.user.username;
   let nextLevelXp = (lv) => Math.floor(50 * (1.2 * lv) * (1.005.toExponential(lv)));
 
-  for (let i = 1; i <= 100; i++) {
-    const calXp = nextLevelXp(i);
-    if (xp - calXp >= 0) {
-      level += 1;
-      xp -= calXp;
-      totalXp = nextLevelXp(i + 1);
-    } else {
-      break;
-    }
-  }
+  totalXp = nextLevelXp(level);
+
+  const formattedDate = dayjs(userData.time)
+    .tz('Asia/Bangkok')
+    .format('HH:mm, DD MMM YYYY');
+
 
   if (level >= 50) {
     ranking = 'Professional';
@@ -143,7 +155,7 @@ async function capturePortfolio() {
   }
 
   const avatarImg = doc.querySelector('.avatar img');
-  avatarImg.src = 'https://img.game8.co/4455868/acbdd5eea048423b03e54664facb9f80.png/show'
+  avatarImg.src = interaction.user.displayAvatarURL();
   
   const userName = doc.querySelector('.username');
   userName.innerHTML = profileUsername;
@@ -160,6 +172,9 @@ async function capturePortfolio() {
   const xpBarFill = doc.querySelector('.xp-bar-fill');
   xpBarFill.style.width = `${xp/totalXp * 100}%`;
 
+  const timeCreate = doc.querySelector('.time-create');
+  timeCreate.innerHTML = `Create at ⏰ ${formattedDate} ICT`;
+
 
   // ? portfolio header
   const portValue = doc.querySelector('.portfolio-value');
@@ -175,11 +190,11 @@ async function capturePortfolio() {
   const profitValue = doc.querySelectorAll('.stat-value');
   profitValue[0].innerHTML = '$9,999.99'; // Profit
   profitValue[1].innerHTML = '5.00%';     // Yield%
-  profitValue[2].innerHTML = '$100.00';   // Dividend
+  profitValue[2].innerHTML = '$0.00';   // Dividend
 
   const statSub = doc.querySelectorAll('.stat-sub');
-  statSub[0].innerHTML = `Today +$85.23 (9.23%)`;
-  statSub[2].innerHTML = `3.45% (1Y)`;
+  statSub[0].innerHTML = `Today +$85.23 (9.23%)`; // Profit 1D %
+  statSub[2].innerHTML = `0.00% (1Y) WIP`; // Dividend %
 
 
   // ? Assets Ratio
@@ -458,11 +473,11 @@ async function capturePortfolio() {
   server.close();
   
   console.log('done');
-  // fs.writeFileSync("output.png", screenshot); // เพิ่มบรรทัดนี้
+  fs.writeFileSync("output.png", screenshot); // เพิ่มบรรทัดนี้
 
   return screenshot;
 }
 
-capturePortfolio();
+// capturePortfolio();
 
 module.exports = { capturePortfolio };
