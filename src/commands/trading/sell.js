@@ -1,9 +1,10 @@
-const { 
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  ComponentType, EmbedBuilder, ApplicationCommandOptionType, MessageFlags
-} = require('discord.js');
-
-const axios = require('axios');
+const { ApplicationCommandOptionType, EmbedBuilder, EmbedAssertions,ContainerBuilder,
+  TextDisplayBuilder, SeparatorBuilder, ButtonBuilder, ButtonStyle, SectionBuilder,
+  MessageFlags, SeparatorSpacingSize, AttachmentBuilder, FileBuilder, MediaGalleryBuilder,
+  MediaGalleryItemBuilder, ThumbnailBuilder,  ActionRowBuilder, StringSelectMenuBuilder,
+  ModalBuilder, TextInputBuilder, TextInputStyle,
+ } = require('discord.js');
+const dayjs = require('dayjs');
 
 // database
 const portData = require('../../models/portfolioUserData');
@@ -12,540 +13,581 @@ const portData = require('../../models/portfolioUserData');
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-// finnhub
-const util = require('util');
-const finnhub = require('finnhub');
-const finnhubClient = new finnhub.DefaultApi(process.env.FINNHUB_API) // Replace this
-
-// Promisify Finnhub methods
-const promisifiedCompanyProfile = util.promisify(finnhubClient.companyProfile2).bind(finnhubClient);
-
 // Coingecko Web API
 const fs = require('fs');
 const path = require('path');
-const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY; // Replace this with your actual API key
+const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
 
 
-async function getVolumeAsset(sub, symbol, database) {
-  try {
-    let volume = 0;
+function sellByVolume_FIFO(array, targetSymbol, volumeToRemove) {
+  let remainingVolumeTarget = volumeToRemove;
+
+  array.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  for (let i = 0; i < array.length; i++) {
+    if (remainingVolumeTarget <= 0) break;
+
+    if (array[i].symbol === targetSymbol) {
+      let currentLotVolume = array[i].volume;
+      let currentLotCost = array[i].cost;
+
+      if (remainingVolumeTarget >= currentLotVolume) {
+        remainingVolumeTarget = parseFloat((remainingVolumeTarget - currentLotVolume).toFixed(7));
+        array[i].volume = 0;
+        array[i].cost = 0;
+      } else {
+        let costToRemove = currentLotCost * (remainingVolumeTarget / currentLotVolume);
+
+        array[i].volume = parseFloat((currentLotVolume - remainingVolumeTarget).toFixed(7));
+        array[i].cost = parseFloat((currentLotCost - costToRemove).toFixed(4));
+
+        remainingVolumeTarget = 0;
+      }
+    }
+  }
+
+  return array.filter(item => item.volume > 0);
+}
+
+async function getPriceOrName({symbol, assetType, fecthName=false}) {
+  let price = 0;
+  let shortName = '';
   
-    if (sub === 'gold') {
-      const gold = database.balance.assets.gold[0]
-      volume = gold.volume;
-    }
-
-    if (sub === 'stock') {
-      const selectAsset = database.balance.assets.stock.find(i => i.symbol === symbol.toLowerCase());
-      volume = selectAsset.volume;
-    }
-
-    if (sub === 'crypto') {
-      const selectAsset = database.balance.assets.crypto.find(i => i.symbol === symbol.toLowerCase());
-      volume = selectAsset.volume;
-    }
-
-    return volume.toFixed(8);
+  if (assetType === 'stock' || assetType === 'etf') {
+    const quote = await yahooFinance.quote(symbol);
+    price = quote.regularMarketPrice;
+    shortName = quote.shortName;
   }
-  catch (error) {
-    return false;
+  
+  else if (assetType === 'crypto') {
+    const quote = await yahooFinance.quote(`${symbol}-USD`);
+    price = quote.regularMarketPrice;
+    shortName = quote.shortName;
   }
+
+  else {
+    const quote = await yahooFinance.quote(`GC=F`);
+    price = quote.regularMarketPrice;
+    shortName = quote.shortName;
+  }
+
+  if (fecthName) return shortName;
+  return price;
 }
 
 
-function combineValueArray(array) {
-  let result = [];
+async function createErrorContainer({ interaction, titleText, descText }) {
+  const container = new ContainerBuilder()
+    .setAccentColor(0xDC143C) // Crimson
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents( new TextDisplayBuilder()
+          .setContent(`## ${titleText}\n:x: <@${interaction.user.id}> ${descText}\n- Thank you for your attention`)
+        )
+        .setThumbnailAccessory( new ThumbnailBuilder()
+          .setURL('https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad1.gif')
+        )
+    )
+    .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents( new TextDisplayBuilder()
+      .setContent(`-# Replied by Yomi`)  
+    )
 
-  array.forEach(item => {
-    let existing = result.find(x => x.symbol === item.symbol);
-    if (existing) {
-      existing.cost += item.cost;
-      existing.volume += item.volume;
-    } else {
-      result.push({ ...item });
-    }
+  await interaction.editReply({
+    components: [ container ],
+    flags: MessageFlags.IsComponentsV2
   });
-
-  return result;
 }
+
 
 
 module.exports = {
   name: 'sell',
-  description: 'Sell assets (stock, crypto, gold) with market price.',
+  description: 'Sell assets with market price.',
   // devOnly: Boolean,
   // testOnly: true,
-  // deleted: Boolean,
-
-  options: [
-    {
-      name: 'stock',
-      description: 'sell stock',
-      type: ApplicationCommandOptionType.Subcommand,
-
-      options: [
-        {
-          name: 'symbol',
-          description: 'ticker of stock',
-          type: ApplicationCommandOptionType.String,
-          require: true
-        },
-        {
-          name: 'mode',
-          description: 'select sell by (volume, cost)',
-          type: ApplicationCommandOptionType.String,
-          require: true,
-          choices: [
-            { name: 'cost', value: 'cost'},
-            { name: 'volume', value: 'volume'}
-          ]
-        },
-        {
-          name: 'amount',
-          description: 'sell amount or all (volume mode: number or percent 10%, 50%, all)',
-          type: ApplicationCommandOptionType.String,
-          require: true
-        },
-      ]
-    },
-    {
-      name: 'crypto',
-      description: 'sell crypto',
-      type: ApplicationCommandOptionType.Subcommand,
-
-      options: [
-        {
-          name: 'name',
-          description: 'coin name',
-          type: ApplicationCommandOptionType.String,
-          require: true
-        },
-        {
-          name: 'mode',
-          description: 'select sell by (volume, cost)',
-          type: ApplicationCommandOptionType.String,
-          require: true,
-          choices: [
-            { name: 'cost', value: 'cost'},
-            { name: 'volume', value: 'volume'}
-          ]
-        },
-        {
-          name: 'amount',
-          description: 'sell amount or all (volume mode: number or percent 10%, 50%, all)',
-          type: ApplicationCommandOptionType.String,
-          require: true
-        },
-      ]
-    },
-    {
-      name: 'gold',
-      description: 'sell gold',
-      type: ApplicationCommandOptionType.Subcommand,
-
-      options: [
-        {
-          name: 'mode',
-          description: 'select sell by (volume, cost)',
-          type: ApplicationCommandOptionType.String,
-          require: true,
-          choices: [
-            { name: 'cost', value: 'cost'},
-            { name: 'volume', value: 'volume'}
-          ]
-        },
-        {
-          name: 'amount',
-          description: 'sell amount or all (volume mode: number or percent 10%, 50%, all)',
-          type: ApplicationCommandOptionType.String,
-          require: true
-        },
-      ]
-    }
-  ],
+  deleted: false,
 
   callback: async(client, interaction) => {
-    await interaction.deferReply(/*{ flags: MessageFlags.Ephemeral }*/);
+    await interaction.deferReply();
+
+    // ? Global variable
+    let assetType = '';
+    let assetSymbol = '';
+    let mode = '';
+
+    // ? Asset Data
+    let shortName = '';
+    let marketPrice = 0;
+    let sellVolume = 0;
+    let sellCost = 0;
+    let sellAll = false;
+    let fee = 0;
+    let logoURL = '';
+
+    // ! Database declare ------------------------------------------------------------------------------
+    const query = { userId: interaction.user.id }
+    let data = await portData.findOne(query);
+
+    if (!data) {
+      return await interaction.editReply(`<@${interaction.user.id}> Sorry, You need to create portfolio first.`);
+    }
+
+    const assetObject  = data.balance.assets;
+    const isAllEmpty   = Object.values(assetObject).every(arr => arr.length === 0);
+    const activeAssets = Object.keys(assetObject).filter(key => assetObject[key].length > 0);
+    
+    if (isAllEmpty) {
+      return await interaction.editReply(`<@${interaction.user.id}> Sorry, You don't have any assets.`);
+    }
+    
+    let selectAsset = []; // [ {label:, description:, value:, emoji:} ]
+    for (const item of activeAssets) {
+      let arrayObj = {};
+
+      if (item === 'stock') {
+        arrayObj = { label:'Stock', description: 'USA Stock', value: 'stock',  emoji: '📈'};
+        selectAsset.push(arrayObj);
+      } else if (item === 'etf') {
+        arrayObj = { label:'ETF', description: 'ETF in USA market', value: 'etf',  emoji: '🏦'};
+        selectAsset.push(arrayObj);
+      } else if (item === 'crypto') {
+        arrayObj = { label: 'Crypto', description: `There's only Top 50 coins`, value: 'crypto', emoji: '💎'};
+        selectAsset.push(arrayObj);
+      } else {
+        arrayObj = { label: 'Gold',   description: 'Gold future only',          value: 'gold',   emoji: '🪙'};
+        selectAsset.push(arrayObj);
+      }
+    }
+    // ! -----------------------------------------------------------------------------------------------
 
     try {
-      const sub = interaction.options.getSubcommand();
-      const name = interaction.options.getString('name') // crypto only
-      const symbol = interaction.options.getString('symbol'); // stock only
-      const mode = interaction.options.getString('mode'); // 'volume' or 'cost'
-      let amount = interaction.options.getString('amount'); // interpret by mode
 
-      // if no input data
-      if (sub !== 'gold' && !(name || symbol)) {
-        await interaction.editReply(`<@${interaction.user.id}> Sorry, You didn't enter any input data`);
-        return;
-      }
+      // ? First Container ------------------------------------------------------
+      const selectRow1 = new StringSelectMenuBuilder()
+        .setCustomId('assets_select')
+        .setPlaceholder('Select assets type...')
+        .addOptions(selectAsset);
 
-      let volume = 0;
-      let marketprice = 0.1 || 1;
-      let totalCost = 0;
-      let selectAsset = '';
-      let imageUrl = '';
+      const containerMain = new ContainerBuilder()
+        .setAccentColor(0xD2042D)
+        .addSectionComponents(
+          new SectionBuilder()
+            .addTextDisplayComponents( new TextDisplayBuilder()
+              .setContent(`## :receipt: Order Selling Assets!\nSelect an assets type and what asset you want to sell`
+                + `\n- **This message will appear for 1 minute!**`
+              )
+            )
+            .setThumbnailAccessory( new ThumbnailBuilder()
+              .setURL('https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_happy1.gif')
+            )
+        )
+        .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large))
 
-      // user id
-      const query = { userId: interaction.user.id }
-      const data = await portData.findOne(query);
+        .addTextDisplayComponents( new TextDisplayBuilder().setContent(`## :bar_chart: Assets Type`))
+        .addActionRowComponents( new ActionRowBuilder().addComponents(selectRow1))
 
-      // combine value in array first
-      // assets array data
-      const stockArr = combineValueArray(data.balance.assets.stock);
-      const cryptoArr = combineValueArray(data.balance.assets.crypto);
-      const goldArr = combineValueArray(data.balance.assets.gold);
-      
-      await portData.updateOne(query, { $set: {
-        'balance.assets.stock': stockArr,
-        'balance.assets.crypto': cryptoArr,
-        'balance.assets.gold': goldArr
-      }})
+        .addTextDisplayComponents( new TextDisplayBuilder().setContent(`-# Please select options above to continue\n`))
 
-      // if no data
-      if (!data) {
-        return await interaction.editReply(`<@${interaction.user.id}> Sorry, You need to create portfolio first.`);
-      }
+        .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+          .addTextDisplayComponents( new TextDisplayBuilder()
+            .setContent(`-# Request by ${interaction.user.username}`)
+        )
+      // ? -----------------------------------------------------------------------
 
-      const userMoney = data.balance.money.cash;
-      // debug
-      // console.log(amount);
+      const menu1 = await interaction.editReply({
+        components: [ containerMain ],
+        flags: MessageFlags.IsComponentsV2
+      });
 
-      // check user input
-      if (sub === 'stock') {
-        selectAsset = symbol.toUpperCase();
-        // Promisify
-        const companyProfile = await promisifiedCompanyProfile({ 'symbol': selectAsset }) || null;
-        const stockData = await yahooFinance.quote(selectAsset);
+      // ! collector zone
+      const filter = (i) => true; //i.user.id === interaction.user.id;
+      const collector = menu1.createMessageComponentCollector({ filter, time: 60000 });
 
-        imageUrl = companyProfile.logo;
-        
-        // if stock no data
-        if (!stockData) {
-          return await interaction.editReply(`Error, your symbol not found,`);
-        }
-
-        // market state
-        // you can on-off if you want
-        const testOnly = true;
-        const marketState = stockData.marketState;
-        if (marketState !== 'REGUlAR' && !testOnly) {
-          return await interaction.editReply(`Market isn't open yet.`);
-        }
-
-        marketprice = stockData.regularMarketPrice.toFixed(2);
-      }
-      if (sub === 'crypto') {
-        selectAsset = name.toUpperCase();
-
-        const allCoinPath = path.join(__dirname, '..', '..', '..', 'allcoin.json');
-        if (!fs.existsSync(allCoinPath)) {
-          return await interaction.editReply(`❌ ไม่พบไฟล์ allcoin.json ในระบบ กรุณาตรวจสอบพาร์ทไฟล์`);
-        }
-        const allCoin = JSON.parse(fs.readFileSync(allCoinPath, 'utf-8'));
-        const coinMatch = allCoin.find(c =>
-          c.name.toUpperCase() === selectAsset ||
-          c.id.toUpperCase() === selectAsset ||
-          c.symbol.toUpperCase() === selectAsset
-        );
-        if (!coinMatch) {
-          return await interaction.editReply(`Sorry, your coin name could not find.`);
-        }
-
-        const cryptoResponse = await axios.get(`${COINGECKO_BASE_URL}/coins/${coinMatch.id}`, {
-          headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY }
-        });
-        const cryptoData = cryptoResponse.data;
-        const cryptoMarketData = cryptoData.market_data;
-
-        imageUrl = cryptoData.image.large;
-        marketprice = cryptoMarketData.current_price.usd;
-      }
-      if (sub === 'gold') {
-        const goldUrl = 'https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD';
-        imageUrl = 'https://www.newtondesk.com/wp-content/uploads/2018/07/Pure-Gold.png';
-
-        const response = await axios.get(goldUrl);
-        const goldSpotPrice = (response.data[0].spreadProfilePrices[0].bid + response.data[0].spreadProfilePrices[0].ask) / 2;
-        const goldYF = await yahooFinance.quote("GC=F");
-
-        // market state
-        const marketState = goldYF.marketState;
-        if (marketState !== 'REGULAR') {
-          return await interaction.editReply(`Market isn't open yet.`);
-        }
-
-        marketprice = goldSpotPrice.toFixed(2);
-        selectAsset = 'GOLD (Spot)';
-      }
-
-      // percent input
-      let hasPercentage = false;
-      if (amount.includes('%')) {
-        hasPercentage = true;
-      }
-
-      if (!hasPercentage && amount.toLowerCase() !== 'all') {
-        amount = Number(amount);
-      }
-
-      // update data
-      let upData = await portData.findOne(query);
-      const volumeAsset = await getVolumeAsset(sub, (name || symbol), upData);
-
-      if (!volumeAsset) {
-        return await interaction.editReply(`Sorry, you don't have ${selectAsset} in your database`);
-      }
-
-      // if user has asset's value approximately 0$
-      const valueSelectAsset = marketprice * volumeAsset;
-
-      if (valueSelectAsset.toFixed(2) <= 0) {
-        return await interaction.editReply(`Sorry, your asset's value nearly to 0$\n- you need to buy more and try to sell 'All'.`);
-      }
-
-      if (mode === 'cost') {
-        // user error
-        if (hasPercentage) {
-          return await interaction.editReply(`Sorry, % form is only available in volume mode.`);
-        }
-
-        if (amount < 1) {
-          return await interaction.editReply('Minimum of amount is 1.');
-        }
-        
-        if (typeof amount === 'string') {
-          if (amount.toLowerCase() === 'all') {
-            volume = volumeAsset;
-            totalCost = volume * marketprice;
-          }
-        } else if (Number.isFinite(amount)) {
-          totalCost = amount.toFixed(2);
-          volume = (amount / marketprice).toFixed(8);
-        } else {
-          return await interaction.editReply(`Sorry, cost mode input can only be a Number or 'All'`);
-        }
-      } 
-      else if (mode === 'volume') {
-        let divider = 0;
-
-        // user error
-        if (amount <= 0) {
-          await interaction.editReply('You can not set volume to 0 or less');
+      collector.on('collect', async (i) => {
+        if (i.user.id !== interaction.user.id) {
+          await i.reply({ content: `Sorry, This's not your menu!`, flags: MessageFlags.Ephemeral });
           return;
         }
 
-        if (hasPercentage) {
-          divider = parseFloat(amount); // convert '10%' -> 10
-        
-          if (divider > 100 || divider < 1) {
-            return await interaction.editReply(`Sorry, you can set percent in this range (1-100%).`);
+        // ! Select Menu
+        // ? Assets Select Menu
+        if (i.customId === 'assets_select') {
+          assetType = i.values[0];
+          await i.deferUpdate();
+
+          collector.stop('done');
+        }
+      });
+
+      collector.on('end', async (collected, reason) => {
+        if (reason === 'time') {
+          createErrorContainer({
+            interaction: interaction,
+            titleText: `📄 Order Expired!`,
+            descText: `You need to fill up all info in **1 minute**`
+          });
+        }
+
+        let symbolOptions = [];
+        const assetArray = assetObject[assetType];
+
+        const mergeArray = Object.values(assetArray.reduce((acc, item) => {
+          const key = item.symbol;
+
+          if (!acc[key]) {
+            acc[key] = {
+              symbol: item.symbol,
+              volume: 0,
+              cost: 0,
+              logoURL: item.logoURL
+            };
           }
-          divider = divider / 100;
+          acc[key].volume += item.volume;
+          acc[key].cost += item.cost;
+
+          return acc;
+        }, {}));
+
+        for (const item of mergeArray) {
+          const obj = { label: item.symbol, description: `Cost: $${item.cost.toFixed(2)}, Volume: ${item.volume.toFixed(7)}`, value: item.symbol};
+          symbolOptions.push(obj);
+        }
+
+
+        // ? Second Container ------------------------------------------------------------
+        const selectRow1 = new StringSelectMenuBuilder()
+          .setCustomId('symbol_select')
+          .setPlaceholder('Select asset...')
+          .addOptions(symbolOptions);
+
+        const selectMode = new StringSelectMenuBuilder()
+          .setCustomId('mode_select')
+          .setPlaceholder('Select Mode...')
+          .addOptions([
+            { label: 'Cost',   description: 'Amount of money (At least $5/All)', value: 'cost', emoji: '💰' },
+            { label: 'Volume', description: 'Share quantity (Manual/All)', value: 'volume', emoji: '⚖️' },
+          ]);
+
+        const openModalBtn = new ButtonBuilder()
+          .setCustomId('open_modal_btn')
+          .setLabel('Fill in Information!')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📝');
+
+        const containerSub = new ContainerBuilder()
+          .setAccentColor(0xD2042D)
+          .addSectionComponents(
+            new SectionBuilder()
+              .addTextDisplayComponents( new TextDisplayBuilder()
+                .setContent(`## :receipt: Selling ${assetType.toUpperCase()}!\nSelect what asset you want to sell`
+                  + `\n- **This message will appear for 1 minute!**`
+                )
+              )
+              .setThumbnailAccessory( new ThumbnailBuilder()
+                .setURL('https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_happy2.gif')
+              )
+          )
+          .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large))
+
+          .addTextDisplayComponents( new TextDisplayBuilder().setContent(`## :bar_chart: Assets in your inventory`))
+          .addActionRowComponents( new ActionRowBuilder().addComponents(selectRow1))
+          .addTextDisplayComponents( new TextDisplayBuilder().setContent(`## :shopping_cart: Mode`))
+          .addActionRowComponents( new ActionRowBuilder().addComponents(selectMode))
+          .addTextDisplayComponents( new TextDisplayBuilder().setContent(`-# Please select options above to continue\n`))
+          .addActionRowComponents(new ActionRowBuilder().addComponents(openModalBtn))
+
+          .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+            .addTextDisplayComponents( new TextDisplayBuilder()
+              .setContent(`-# Replied by Yomi`)
+          )
+        // ? ---------------------------------------------------------------------------
+
+        const menu2 = await interaction.editReply({
+          components: [ containerSub ],
+          flags: MessageFlags.IsComponentsV2
+        });
+
+        // ! collector zone
+        const filter1 = (i) => true; //i.user.id === interaction.user.id;
+        const collector1 = menu2.createMessageComponentCollector({ filter: filter1, time: 60000 });
+
+        collector1.on('collect', async (i) => {
+          if (i.user.id !== interaction.user.id) {
+            await i.reply({ content: `Sorry, This's not your menu!`, flags: MessageFlags.Ephemeral });
+            return;
+          }
+
+          // ! Select Menu
+          if (i.customId === 'symbol_select') {
+            assetSymbol = i.values[0];
+            await i.deferUpdate();
+          }
+          if (i.customId === 'mode_select') {
+            mode = i.values[0];
+            await i.deferUpdate();
+          }
+
+          // ! Modal
+          if (i.customId === 'open_modal_btn') {
+            if (!assetType || !mode) {
+              await i.reply({ content: 'Please select both options first!', flags: MessageFlags.Ephemeral });
+              return;
+            }
+
+            const amountInput = new TextInputBuilder()
+              .setCustomId('amount_input_text')
+              .setLabel(`Amount`)
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder(`Number or Type All`)
+              .setRequired(true);
+
+            const modal = new ModalBuilder()
+              .setCustomId('modal_form')
+              .setTitle("Asset's details");
+
+            const createdModal = modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+
+            await i.showModal(createdModal);
+
+            try {
+              const modalSubmit = await i.awaitModalSubmit({
+                filter: (m) => m.customId === 'modal_form' && m.user.id === interaction.user.id,
+                time: 60000,
+              });
+              await modalSubmit.deferUpdate();
+
+              // Code Here
+              let amountText = modalSubmit.fields.getTextInputValue('amount_input_text');
+              
+              if (amountText.toUpperCase() === 'ALL') {
+                sellAll = true;
+              }
+              else if (isNaN(amountText)) {
+                return collector1.stop('integer_invalid');
+              }
+              else if (amountText < 5 && mode === 'cost') {
+                return collector1.stop('limit');
+              }
+              else if (amountText < 1 && mode === 'volume') {
+                return collector1.stop('limit');
+              }
+
+              amountText = Number(amountText);
+              marketPrice = await getPriceOrName({symbol: assetSymbol, assetType: assetType});
+              shortName = await getPriceOrName({symbol: assetSymbol, assetType: assetType, fecthName: true});
+
+              const symbolArray = assetObject[assetType];
+              const filtered = symbolArray.filter(item => item.symbol === assetSymbol);
+              const choosenObj = filtered.reduce((acc, item) => {
+                return {
+                  symbol: assetSymbol,
+                  volume: acc.volume + item.volume,
+                  cost: acc.cost + item.cost
+                };
+              }, { volume: 0, cost: 0 });
+
+              if (mode === 'cost') {
+                sellVolume = parseFloat((amountText / marketPrice).toFixed(7));
+                sellCost = Math.round(amountText * 100) / 100;
+
+                if (sellVolume > choosenObj.volume || sellAll) {
+                  sellAll = true;
+                  sellCost = Math.round(marketPrice * choosenObj.volume * 100) / 100;
+                  sellVolume = choosenObj.volume;
+                }
+              }
+              
+              else {
+                sellCost = Math.round(marketPrice * amountText * 100) / 100;
+                sellVolume = parseFloat(amountText.toFixed(7));
+
+                if (amountText > choosenObj.volume || sellAll) {
+                  sellAll = true;
+                  sellVolume = choosenObj.volume;
+                  sellCost = Math.round(marketPrice * choosenObj.volume * 100) / 100;
+                }
+              }
+
+              fee = Math.round(sellCost * 0.0025 * 100) / 100;
+              sellCost = Math.round((sellCost - fee) * 100) / 100;
+              collector1.stop('done');
+            }
+            catch (error) {
+              console.log(`Modal did not receive any thing or it error ${error}`);
+            }
+          }
+
+        });
+
+        collector1.on('end', async (collected, reason) => {
+          if (reason === 'time') {
+            return createErrorContainer({
+              interaction: interaction,
+              titleText: `📄 Order Expired!`,
+              descText: `You need to fill up all info in **1 minute**`
+            });
+          } else if (reason === 'integer_invalid') {
+            return createErrorContainer({
+              interaction: interaction,
+              titleText: `📄 Integer Invalid!`,
+              descText: `Amount should be an **Integer** or **'All'**`
+            });
+          } else if (reason === 'limit') {
+            return createErrorContainer({
+              interaction: interaction,
+              titleText: `📄 Type Error!`,
+              descText: `Amount should at least **$5 or 1 Shares/Coin/Oz** if you want to sell less than this use **'ALL'**`
+            });
+          }
+
+          const filtered = assetObject[assetType].filter(item => item.symbol === assetSymbol);
+          logoURL = filtered[0].logoURL;
+          const money = data.balance.money.cash;
+
+          const summary = new ContainerBuilder()
+            .setAccentColor(0xD2042D)
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(`## :white_check_mark: Order Verified! -> (Sell)\nAsset: **${assetType.toUpperCase()}** Mode: **${mode.toUpperCase()}**`)
+                )
+                .setThumbnailAccessory(
+                  new ThumbnailBuilder().setURL(logoURL)
+                )
+            )
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(`## :page_facing_up: Details\n- Name: **${shortName}**\n- Symbol: **${assetSymbol}**\n- Price: **$${marketPrice}**\n- Volume: **${sellVolume}** ${sellAll ? '**__(All)__**' : ''}`)
+            )
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(`## :shopping_cart: You get\n- Fee: **${fee}** (0.25%)\n- :dollar: **__$${sellCost}__** (Including Fee)`)
+            )
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(`## :identification_card: User's Profile\n- Wallet: **$${money.toFixed(2)}**`)
+                )
+                .setThumbnailAccessory(
+                  new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL())
+                )
+            )
+            .addActionRowComponents(
+              new ActionRowBuilder()
+                .addComponents(
+                  new ButtonBuilder()
+                    .setStyle(ButtonStyle.Primary)
+                    .setLabel(`Sell $${sellCost}`)
+                    .setCustomId('confirm_sell')
+                )
+                .addComponents(
+                  new ButtonBuilder()
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel('Cancel')
+                    .setCustomId('cancel_purchase')
+                )
+            )
+            .addTextDisplayComponents( new TextDisplayBuilder().setContent(`-# Please confirm your purchase within 1 minute!`))
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(`-# Replied by Yomi`)
+            );
           
-          volume = divider * volumeAsset;
-          totalCost = volume * marketprice;
-        } else if (typeof amount === 'string') {
-          if (amount.toLowerCase() === 'all') {
-            volume = volumeAsset;
-            totalCost = volume * marketprice;
-          }
-        } else if (Number.isFinite(amount)) {
-          totalCost = (amount * marketprice).toFixed(2);
-          volume = amount.toFixed(8);
-        } else {
-          return await interaction.editReply(`Sorry, volume mode input can only be a Number or Percent ('10%') or 'All'`);
-        }        
-      } 
-      else {
-        return await interaction.editReply('Error, please choose `mode`.'); 
-      }
+          const menu3 = await interaction.editReply({
+            components: [ summary ],
+            flags: MessageFlags.IsComponentsV2
+          });
 
-      if (Number(totalCost).toFixed(2) < 1) {
-        return await interaction.editReply(`Minimum for selling value is 1. you selling it with price (${Number(totalCost).toFixed(2)})`); 
-      }
+          // ! collector zone
+          const filter2 = (i) => true; //i.user.id === interaction.user.id;
+          const collector2 = menu3.createMessageComponentCollector({ filter: filter2, time: 60000 });
 
-      let costBeforeFee = Number(totalCost).toFixed(2);
-      // fee commission 0.25% (Selling)
-      let fee = (totalCost * 0.0025).toFixed(2);
-      if (Number(fee) === 0) {
-        fee = 0.01
-      }
-      totalCost = (Number(totalCost) - Number(fee)).toFixed(2); // minus bc selling
-      volume = Number(volume).toFixed(8);
+          collector2.on('collect', async (i) => {
+            if (i.user.id !== interaction.user.id) {
+              await i.reply({ content: `Sorry, This's not your menu!`, flags: MessageFlags.Ephemeral });
+              return;
+            }
 
-      // embeds
-      const embed = new EmbedBuilder()
-      .setAuthor({
-        name: `Request by ${interaction.user.username}`,
-        iconURL: interaction.user.displayAvatarURL(),
-      })
-      .setTitle(`Sell ${selectAsset} (1 min remaining...)`)
-      .setThumbnail(imageUrl)
-      .setDescription(
-        `:exclamation: Confirm sell **${selectAsset}**\nDouble-check your information before confirm.`
-      )
-      .setColor('Red')
-      .setFields(
-        {
-          name: ':page_facing_up: Details',
-          value: `Price At: ${marketprice}\nVolume: ${volume}\nFee: ${fee} (0.25%)\n\n:dollar: Total Cost: ${totalCost}`,
-          inline: true
-        },
-        {
-          name: ':moneybag: Your Balance',
-          value: `${userMoney.toFixed(2)}`,
-          inline: true
-        },
-      )
-      .setFooter({
-        text: `🗓️ ${new Date().toLocaleString('en-GB', {
-            day: 'numeric', month: 'short', year: 'numeric'
-          })}, ${new Date().toLocaleString('en-US',
-          { hour12: true , timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }
-        )} (GMT+7)`
+            // ! Select Menu
+            if (i.customId === 'confirm_sell') {
+              await i.deferUpdate();
+
+              const payloadData = sellByVolume_FIFO(assetObject[assetType], assetSymbol, sellVolume);
+              const money = data.balance.money.cash;
+
+              const txnData = {
+                symbol: assetSymbol,
+                volume: Number(sellVolume),
+                cost: Number(sellCost),
+                date: new Date(), // ? UTC TIME
+                logoURL: logoURL,
+                type: 'sell',
+                assetType: assetType,
+              };
+
+              await portData.updateOne(query, {
+                $push : {
+                ['transaction']: txnData
+              }})
+              await portData.updateOne(query, {
+                $set : {
+                [`balance.assets.${assetType.toLowerCase()}`]: payloadData,
+                'balance.money.cash': Math.round((money + sellCost) * 100) / 100
+              }})
+
+              collector2.stop('done');
+            }
+            if (i.customId === 'cancel_purchase') {
+              await i.deferUpdate();
+              collector2.stop('cancel');
+            }
+          });
+
+          collector2.on('end', async (collected, reason) => {
+            if (reason === 'time') {
+              return createErrorContainer({
+                interaction: interaction,
+                titleText: `📄 Order Expired!`,
+                descText: `You need to fill up all info in **1 minute**`
+              });
+            } else if (reason === 'cancel') {
+              return createErrorContainer({
+                interaction: interaction,
+                titleText: `📄 Canceled Order!`,
+                descText: `You just **canceled** the order`
+              });
+            }
+
+            const container = new ContainerBuilder()
+              .setAccentColor(0xD2042D)
+              .addSectionComponents(
+                new SectionBuilder()
+                  .addTextDisplayComponents( new TextDisplayBuilder().setContent(`## :receipt: Sell Order Placed!\n- Asset: **${assetType.toUpperCase()}**\n- Symbol: **${assetSymbol}**\n- Sell Price: **$${marketPrice}**`
+                    + `\n- Volume: **${sellVolume}**\n- Date: **${dayjs().format('hh:mm A, ddd D MMM YYYY')} ICT**\n- Value: :dollar: **__$${sellCost}__**`))
+                  .setThumbnailAccessory( new ThumbnailBuilder().setURL(interaction.user.displayAvatarURL()))
+              )
+              .addSeparatorComponents( new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small))
+              .addTextDisplayComponents( new TextDisplayBuilder()
+                .setContent(`-# Replied by Yomi`)
+              )
+
+            await interaction.editReply({
+              components: [ container ],
+              flags: MessageFlags.IsComponentsV2
+            });
+
+          });
+        });
       });
-    
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('confirm_reset')
-          .setLabel('Confirm')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('cancel_reset')
-          .setLabel('Cancel')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      await interaction.editReply({
-        embeds: [embed],
-        components: [row],
-        flags: MessageFlags.Ephemeral
-      });
-
-      
-      const filter = (i) => i.user.id === interaction.user.id;
-
-      let buttonInteraction;
-      try {
-        buttonInteraction = await interaction.channel.awaitMessageComponent({
-          filter,
-          time: 60_000, // 1 min
-          componentType: ComponentType.Button,
-        });
-      } catch (err) {
-        await interaction.editReply({
-          content: `<@${interaction.user.id}> Your order expired. :timer:`,
-          embeds: [],
-          components: [],
-          // flags: MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      // check value button
-      if (buttonInteraction.customId === 'confirm_reset') {
-        // TODO add a logic
-        // assetvolume - selling if <= 0.000001 delete that object
-        totalCost = Number(totalCost);
-        const threshold = 0.000001;
-
-        let stockData = upData.balance.assets.stock;
-        let cryptoData = upData.balance.assets.crypto;
-        let goldData = upData.balance.assets.gold;
-
-        // user money
-        let userMoney = upData.balance.money.cash;
-        // console.log(stockData);
-        // costBeforeFee
-        let leftVolume = volumeAsset - volume;
-        // console.log("working...");
-      
-
-        if (sub === 'stock') {
-          const selectAsset = stockData.findIndex(i => i.symbol === symbol.toLowerCase());
-          stockData[selectAsset].volume = leftVolume;
-          stockData[selectAsset].cost -= costBeforeFee;
-
-          let filterArray = [];
-          filterArray = stockData;
-
-          if (leftVolume <= threshold) {
-            // delete that stock
-            filterArray = stockData.filter(i => i.symbol !== symbol.toLowerCase());
-            // console.log(`This stock is almost zero`);
-          }
-
-          await portData.updateOne(query, {$set : {
-            'balance.assets.stock': filterArray
-          }})
-        }
-
-        if (sub === 'crypto') {
-          const selectAsset = cryptoData.findIndex(i => i.symbol === name.toLowerCase());
-          cryptoData[selectAsset].volume = leftVolume;
-          cryptoData[selectAsset].cost -= costBeforeFee;
-
-          let filterArray = [];
-          filterArray = cryptoData;
-
-          if (leftVolume <= threshold) {
-            // delete that stock
-            filterArray = cryptoData.filter(i => i.symbol !== name.toLowerCase());
-            // console.log(`This stock is almost zero`);
-          }
-
-          await portData.updateOne(query, {$set : {
-            'balance.assets.crypto': filterArray
-          }})
-        }
-
-        if (sub === 'gold') {
-          const selectAsset = goldData[0];
-          selectAsset.volume = leftVolume;
-          selectAsset.cost -= costBeforeFee;
-
-          let filterArray = [];
-          filterArray = goldData;
-
-          if (leftVolume <= threshold) {
-            // delete that stock
-            filterArray = [];
-            // console.log(`This stock is almost zero`);
-          }
-
-          await portData.updateOne(query, {$set : {
-            'balance.assets.gold': filterArray
-          }})
-        }
-
-        
-        userMoney += totalCost;
-        await portData.updateOne(query, {$set : { 'balance.money.cash': userMoney }})
-
-        await buttonInteraction.update({
-          content: `:white_check_mark: Order placed Successfully.\nYou sold: ${selectAsset} Received: ${totalCost}`,
-          embeds: [],
-          components: [],
-          flags: MessageFlags.Ephemeral
-        });
-      } else if (buttonInteraction.customId === 'cancel_reset') {
-        await buttonInteraction.update({
-          content: ':x: Your order has been cancelled.',
-          embeds: [],
-          components: [],
-          flags: MessageFlags.Ephemeral
-        });
-      }
     }
 
     catch (error) {
+      await interaction.editReply(`Error code: ${error}`);
       console.log(error);
-      
-      await interaction.editReply(`Error Code: ${error}`);
       return;
     }
+
   }
 }

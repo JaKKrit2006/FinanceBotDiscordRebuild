@@ -657,7 +657,7 @@ body::before {
 }
 
 .alloc-bar-bg {
-  width: 50px;
+  width: 75px;
   height: 6px;
   background: var(--bg-muted);
   border-radius: 8px;

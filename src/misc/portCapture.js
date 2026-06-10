@@ -118,6 +118,7 @@ function mergeSymbol(dataArray) {
 
 
 async function capturePortfolio(interaction) {
+  // ? Server Header
   const html = fs.readFileSync(path.join(__dirname, '..', 'bin', 'html', 'port.html'), 'utf-8');
   const css  = fs.readFileSync(path.join(__dirname, '..', 'bin', 'css', 'style.css'),  'utf-8');
 
@@ -496,9 +497,9 @@ async function capturePortfolio(interaction) {
                     <div class="asset-full">${allWealthBySymbol[i].shortName}</div>
                 </div>
             </div>
-            <div class="asset-data-cell asset-price-text text-muted-cell">$${formatNumber(allWealthBySymbol[i].marketPrice)}</div>
-            <div class="asset-data-cell asset-volume-text text-muted-cell">${allWealthBySymbol[i].volume}</div>
-            <div class="asset-data-cell asset-value-text text-muted-cell">$${formatNumber(allWealthBySymbol[i].value)}</div>
+            <div class="asset-data-cell asset-price-text">$${formatNumber(allWealthBySymbol[i].marketPrice)}</div>
+            <div class="asset-data-cell asset-volume-text">${allWealthBySymbol[i].volume}</div>
+            <div class="asset-data-cell asset-value-text">$${formatNumber(allWealthBySymbol[i].value)}</div>
             <div class="asset-data-cell asset-change-text ${change > 0 ? 'change-positive' : 'change-negative'}">
               <div class="asset-profit-text">${change > 0 ? '+' : '-'}$${formatNumber(Math.abs(change))}</div>
               <div class="asset-profit-pct">(${changePct.toFixed(2)}%)</div>
@@ -509,8 +510,8 @@ async function capturePortfolio(interaction) {
             </div>
             <div class="asset-data-cell">
                 <div class="alloc-bar-wrap">
-                    <span class="text-muted-cell alloc-text" style="font-family:'JetBrains Mono',monospace;">${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%</span>
-                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%;background:#76b900;"></div></div>
+                    <span class="alloc-text" style="font-family:'JetBrains Mono',monospace;">${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%</span>
+                    <div class="alloc-bar-bg"><div class="alloc-bar-fill" style="width:${(allWealthBySymbol[i].ratio * 100).toFixed(1)}%;background:#1db954;"></div></div>
                 </div>
             </div>
         </div>
@@ -528,6 +529,28 @@ async function capturePortfolio(interaction) {
   graphTime.innerHTML = `⏰ ${dayjs(new Date()).tz('Asia/Bangkok').format('HH:mm, DD MMM YYYY')} ICT`;
   
   // ? Graph
+  let createPortDate = userData.time;
+  createPortDate = dayjs(createPortDate).tz('Asia/Bangkok').format('YYYY-MM-DD');
+
+  /*
+  const queryOptions = {
+    period1: createPortDate,
+    interval: '1h',        // Time interval: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+  };
+
+  const chartAllSymbol = await Promise.all(
+    allAssetSymbol.map(async (symbol) => {
+      const result = await yahooFinance.chart(symbol, queryOptions);
+      return {
+        symbol,
+        data: result.quotes.map(({ date, close }) => ({ date, close }))
+      };
+    })
+  );
+  */
+
+  // console.log(chartAllSymbol[0].data);
+
   let minValue = 500;
   let maxValue = 2000;
   let axisY = [];
@@ -568,15 +591,6 @@ async function capturePortfolio(interaction) {
 
 
   // ? X - Axis
-  let startDate = '2026-06-01T16:45:00.000Z';
-  let endDate = '2026-06-02T18:30:00.000Z';
-  let createPortDate = '2026-06-03T18:00:00.000Z';
-  let dateNow = new Date()
-
-  startDate = new Date(startDate);
-  endDate = new Date(endDate);
-  createPortDate = new Date(createPortDate);
-
   let axisX = [];
   let chartArray = []; // 'x,y' '50-1400, 0-340'
   let chartArrayX = []; // 'x'
@@ -587,7 +601,6 @@ async function capturePortfolio(interaction) {
     if (!clamp) return mapped;
     return Math.min(Math.max(mapped, outMin), outMax);
   };
-
 
   const mockData = [
     { date: '2026-06-06T01:00:00.000Z', value: 1354 },
