@@ -81,6 +81,11 @@ const portfolioData = new Schema({
   transaction: {
     type: Array,
     default: []
+  },
+  
+  moneytxn: {
+    type: Array,
+    default: []
   }
 })
 

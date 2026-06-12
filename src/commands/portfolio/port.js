@@ -140,8 +140,8 @@ module.exports = {
           },
           assets: { stock: [], etf: [],crypto: [], gold: [] }
         },
-        wallpaper: ['default'],
-        transaction: []
+        transaction: [],
+        moneytxn: [],
       };
 
       // user id
@@ -172,7 +172,8 @@ module.exports = {
               assets: { stock: [], etf: [], crypto: [], gold: [] }
             },
             wallpaper: ['default'],
-            transaction: []
+            transaction: [],
+            moneytxn: []
           })
 
           await newData.save().catch(e => {

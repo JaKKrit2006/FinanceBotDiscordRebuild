@@ -98,7 +98,7 @@
   --accent-gold: #f5a623;
   --accent-purple: #9d4edd;
   --rank-color: #cffafe;
-  --scrollbar: #2a2a3a;
+  --scrollbar: #3b3b4b;
 }
 
 html, body {
@@ -108,7 +108,7 @@ html, body {
   background: var(--bg-base);
   font-family: 'Outfit', sans-serif;
   color: var(--text-primary);
-  /*background-image: url('https://scontent.fbkk22-3.fna.fbcdn.net/v/t39.30808-6/707866983_1004104188842474_3203793470653384435_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGPy5u_xbGqodCzhoG7VDLPQyF5wW2L389DIXnBbYvfzxTJEPP5pfDp-IZQqi1PaUz9a75IIinR3GpfnRI8Ru_z&_nc_ohc=wL9MCYyDbegQ7kNvwETyehk&_nc_oc=Adq6-NlgksOXfDSUzk0Ri8xVEywpBk--GjN1g_rI8ARHtWZCKKHGq-pLQfk4Pe1B8au3YioranqFj3DAOcX0hce4&_nc_zt=23&_nc_ht=scontent.fbkk22-3.fna&_nc_gid=-7UzlzU7Ai7zhhgHxG3miA&_nc_ss=7b2a8&oh=00_Af_azj6HGIRxb66GL2eznyD_1j3JLKvJC-REmqEXoTRZtA&oe=6A285650');
+  /*background-image: url('https://media.discordapp.net/attachments/1259537917442003016/1514567631867482152/Lacrimosa-2.jpg?ex=6a2bd686&is=6a2a8506&hm=aedd20f3a52e959e41b365e8fb95327d1b834054eb6a31318338623dc57e7112&=&format=webp&width=1515&height=852');
   */background-size: cover;
 }
 
@@ -542,6 +542,12 @@ body::before {
   stroke-width: 1;
 }
 
+.chart-rect {
+  fill: var(--bg-muted);
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+
 /* ตัวหนังสือบอกจำนวนเงินฝั่งซ้าย (แกน Y) */
 .chart-label-y {
   fill: var(--text-secondary, #8888aa);
@@ -554,7 +560,14 @@ body::before {
   fill: var(--text-secondary, #8888aa);
   font-family: 'Outfit', sans-serif;
   font-size: 14px;
-  text-anchor: middle; /* จัดระเบียบให้ตัวอักษรขยายออกจากตรงกลางพิกัด X พอดี */
+  text-anchor: middle;
+}
+
+.chart-label-x-date {
+  fill: var(--text-secondary, #8888aa);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  text-anchor: middle;
 }
 
 /* ! bottom assets ----------------- */

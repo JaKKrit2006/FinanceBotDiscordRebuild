@@ -487,6 +487,16 @@ module.exports = {
                 await i.deferUpdate();
 
                 const money = data.balance.money.cash;
+
+                if (money < totalCostWithFee) {
+                  collector1.stop('money_limit');
+                  return;
+                }
+
+                const moneyPayload = {
+                  value: money,
+                  time: new Date()
+                }
                 
                 const payloadData = {
                   symbol: assetSymbol,
@@ -509,11 +519,12 @@ module.exports = {
                 await portData.updateOne(query, {
                   $push : {
                   [`balance.assets.${assetType.toLowerCase()}`]: payloadData,
-                  ['transaction']: txnData
+                  ['transaction']: txnData,
+                  ['moneytxn']: moneyPayload
                 }})
                 await portData.updateOne(query, {
                   $set : {
-                  'balance.money.cash': money - totalCostWithFee
+                  'balance.money.cash': parseFloat(money - totalCostWithFee).toFixed(2)
                 }})
 
                 collector1.stop('done');
@@ -537,6 +548,11 @@ module.exports = {
               else if (reason === 'cancel') {
                 titleText = ':receipt: Cancel Order!';
                 descText = `You just **canceled** the Order!`;
+                gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad3.gif`
+              }
+              else if (reason === 'money_limit') {
+                titleText = ':receipt: Not Enough Money!';
+                descText = `You only have **$${money}** but total cost is **$${totalCostWithFee}**`;
                 gifURL = `https://raw.githubusercontent.com/JaKKrit2006/FinanceBotDiscordRebuild/refs/heads/main/src/bin/yomiGif/yomi_sad3.gif`
               }
 

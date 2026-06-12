@@ -17,90 +17,74 @@ const portData = require('../models/portfolioUserData');
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-/**
- * @param {Array<{ date: string, value: number }>} data
- * @param {Date} [now]
- * @returns {{ date: Date, label: string }[]}
- */
-function buildAxisX(data, now = new Date()) {
-  if (!data || data.length === 0) return [];
+function generateChartTemplate(money = 1000) {
+  const now = new Date();
+  const startDate = new Date();
 
-  const MS_90_DAYS = 90 * 24 * 60 * 60 * 1000;
+  startDate.setHours(7, 0, 0, 0);
 
-  const timestamps = data.map(d => new Date(d.date).getTime());
-  const dataStart = new Date(Math.min(...timestamps));
-  const dataEnd   = new Date(Math.max(...timestamps));
-
-  const effectiveStart = (now - dataStart) > MS_90_DAYS
-    ? new Date(now.getTime() - MS_90_DAYS)
-    : dataStart;
-
-  const diffHours = (dataEnd - effectiveStart) / (1000 * 60 * 60);
-
-  let intervalHours;
-  let roundTo;
-
-  if (diffHours <= 24) {
-    intervalHours = 3;
-    roundTo = 3;
-  } else if (diffHours <= 72) {
-    intervalHours = 6;
-    roundTo = 6;
-  } else if (diffHours <= 168) {
-    intervalHours = 12;
-    roundTo = 12;
-  } else if (diffHours <= 720) {
-    intervalHours = 48;
-    roundTo = 24;
-  } else {
-    intervalHours = 168;
-    roundTo = 24;
+  if (now.getHours() < 7) {
+    startDate.setDate(startDate.getDate() - 1);
   }
 
-  const firstTick = new Date(effectiveStart);
-  firstTick.setMinutes(0, 0, 0);
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 1);
 
-  const h = firstTick.getHours();
-  const nextRoundHour = Math.ceil(h / roundTo) * roundTo;
-  firstTick.setHours(nextRoundHour);
+  const result = [];
+  const currentPointer = new Date(startDate);
 
-  const axisX = [];
-  for (let i = 0; i < 13; i++) {
-    const tick = new Date(firstTick.getTime() + i * intervalHours * 60 * 60 * 1000);
-    axisX.push({ date: tick, label: formatTickLabel(tick, intervalHours) });
+  while (currentPointer <= endDate) {
+    result.push({
+      date: currentPointer.toISOString(),
+      close: money
+    });
+
+    currentPointer.setTime(currentPointer.getTime() + 5 * 60 * 1000);
   }
 
-  return axisX;
+  return result;
 }
 
-function formatTickLabel(tick, intervalHours) {
-  const tickHour = tick.getHours();
-  const tickMin  = tick.getMinutes();
-  const isStartOfDay = tickHour === 0 && tickMin === 0;
+const buildAxisX = (data) => {
+  const TZ_OFFSET_MS = 7 * 60 * 60 * 1000; // GMT+7
 
-  if (intervalHours >= 48) {
-    return tick.toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'Asia/Bangkok',
+  const toLocal = (date) => new Date(date.getTime() + TZ_OFFSET_MS);
+  const toUTC   = (date) => new Date(date.getTime() - TZ_OFFSET_MS);
+
+  const referenceDate = data && data.length > 0
+    ? new Date(data[0].date)
+    : new Date();
+
+  const localRef = toLocal(referenceDate);
+  const startLocal = new Date(localRef);
+  startLocal.setUTCHours(7, 0, 0, 0);
+
+  if (localRef < startLocal) {
+    startLocal.setUTCDate(startLocal.getUTCDate() - 1);
+  }
+
+  const axis = [];
+
+  for (let i = 0; i <= 12; i++) {
+    const pointLocal = new Date(startLocal);
+    pointLocal.setUTCHours(startLocal.getUTCHours() + i * 2);
+
+    const h = pointLocal.getUTCHours();
+    const m = pointLocal.getUTCMinutes();
+
+    let label;
+    label = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+    const pointUTC = toUTC(pointLocal);
+
+    axis.push({
+      date:  pointUTC.toISOString(),
+      label,
     });
   }
 
-  if (isStartOfDay) {
-    return tick.toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'Asia/Bangkok',
-    });
-  }
-
-  return tick.toLocaleString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Bangkok',
-  });
-}
+  return axis;
+};
 
 function mergeSymbol(dataArray) {
   const merged = dataArray.reduce((acc, item) => {
@@ -233,12 +217,10 @@ async function capturePortfolio(interaction) {
     ...mergeGold.map(a => toYahooSymbol(a.symbol)),
   ];
 
-  // Guard: ถ้าไม่มีสินทรัพย์เลย ข้ามการ fetch ทั้งหมด
   let priceMap = {};
 
   if (allAssetSymbol.length > 0) {
     const rawResults = await yahooFinance.quote(allAssetSymbol);
-    // quote() อาจคืน object เดี่ยวถ้ามีแค่ 1 symbol — normalize ให้เป็น array เสมอ
     const results = Array.isArray(rawResults) ? rawResults : [rawResults];
 
     // console.log(results);
@@ -277,7 +259,6 @@ async function capturePortfolio(interaction) {
     calcTotalCost(mergeGold);
 
   const calcAnnualYield = (assets, isCrypto = false) => {
-    // ถ้า totalSpend = 0 (มีแต่ cash) คืน 0 เพื่อป้องกัน division ผิดพลาด
     if (totalSpend === 0) return 0;
 
     return assets.reduce((sum, asset) => {
@@ -354,7 +335,7 @@ async function capturePortfolio(interaction) {
   legendPct[4].innerHTML = `${(cashRatio * 100).toFixed(1)}%`;   // Cash
 
   const pieTotalValue = doc.querySelector('.pie-total');
-  pieTotalValue.innerHTML = `${formatAxisLabel(totalWealth + moneyUser)}`;
+  pieTotalValue.innerHTML = `${formatAxisLabel(parseFloat((totalWealth + moneyUser).toFixed(2)))}`;
 
   // ? Pie Chart
   const circumference = 490.09; // R=78
@@ -498,7 +479,7 @@ async function capturePortfolio(interaction) {
                 </div>
             </div>
             <div class="asset-data-cell asset-price-text">$${formatNumber(allWealthBySymbol[i].marketPrice)}</div>
-            <div class="asset-data-cell asset-volume-text">${allWealthBySymbol[i].volume}</div>
+            <div class="asset-data-cell asset-volume-text">${allWealthBySymbol[i].volume.toFixed(7)}</div>
             <div class="asset-data-cell asset-value-text">$${formatNumber(allWealthBySymbol[i].value)}</div>
             <div class="asset-data-cell asset-change-text ${change > 0 ? 'change-positive' : 'change-negative'}">
               <div class="asset-profit-text">${change > 0 ? '+' : '-'}$${formatNumber(Math.abs(change))}</div>
@@ -532,32 +513,188 @@ async function capturePortfolio(interaction) {
   let createPortDate = userData.time;
   createPortDate = dayjs(createPortDate).tz('Asia/Bangkok').format('YYYY-MM-DD');
 
-  /*
-  const queryOptions = {
-    period1: createPortDate,
-    interval: '1h',        // Time interval: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
-  };
+  const today = new Date();
+  if (today.getHours() < 7) {
+    today.setDate(today.getDate() - 1);
+  }
 
-  const chartAllSymbol = await Promise.all(
-    allAssetSymbol.map(async (symbol) => {
-      const result = await yahooFinance.chart(symbol, queryOptions);
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  let chartData = '';
+
+  if (allWealthBySymbol.length === 0) {
+    chartData = generateChartTemplate(moneyUser);
+  }
+
+  else {
+    const queryOptions = {
+      period1: `${year}-${month}-${day}`,
+      interval: '5m',
+    };
+
+    const chartAllSymbol = await Promise.all(
+      allAssetSymbol.map(async (symbol) => {
+        try {
+          const result = await yahooFinance.chart(symbol, queryOptions);
+          
+          if (!result || !Array.isArray(result.quotes)) {
+            console.warn(`[Warning] No quotes data found for symbol: ${symbol}`);
+            return { symbol, data: [] };
+          }
+
+          return {
+            symbol,
+            data: result.quotes
+              .filter(quote => quote && quote.date !== null && quote.close !== null)
+              .map(({ date, close }) => ({ date, close }))
+          };
+
+        } catch (error) {
+          console.error(`[Error] Failed to fetch chart for symbol: ${symbol}`, error.message);
+          return { symbol, data: [] };
+        }
+      })
+    );
+
+    chartData = generateChartTemplate();
+
+    function groupAssetsBySymbol(assets) {
+      const map = {};
+      for (const asset of assets) {
+        if (!map[asset.symbol]) map[asset.symbol] = [];
+        map[asset.symbol].push({
+          volume: asset.volume,
+          purchaseDate: new Date(asset.date),
+          cost: asset.cost
+        });
+      }
+      for (const symbol in map) {
+        map[symbol].sort((a, b) => a.purchaseDate - b.purchaseDate);
+      }
+      return map;
+    }
+
+    function getVolumeAtTime(lots, t) {
+      return lots
+        .filter(lot => lot.purchaseDate <= t)
+        .reduce((sum, lot) => sum + lot.volume, 0);
+    }
+
+    function buildPriceMap(chartData) {
+      const sorted = [...chartData].sort((a, b) => new Date(a.date) - new Date(b.date));
+      return sorted;
+    }
+
+    function getPriceAtTime(sortedData, t) {
+      let lastPrice = null;
+      for (const point of sortedData) {
+        if (new Date(point.date) <= t) lastPrice = point.close;
+        else break;
+      }
+      return lastPrice;
+    }
+
+    // ---- MAIN ----
+    const allAssets = [
+      ...stockArray,
+      ...etfArray,
+      ...cryptoArray,
+      ...goldArray
+    ];
+
+    const allMergeAssets = [
+      ...mergeStock,
+      ...mergeEtf,
+      ...mergeCrypto,
+      ...mergeGold
+    ];
+
+    console.log(allMergeAssets);
+
+    const assetGroups = groupAssetsBySymbol(allAssets);
+
+    function normalizeSymbol(symbol) {
+      if (symbol === 'GC=F') {
+        return "GOLD"
+      }
+      return symbol.replace('-USD', '');
+    }
+
+    const symbolChartMap = {};
+    for (const item of chartAllSymbol) {
+      const normalizedKey = normalizeSymbol(item.symbol); // "BTC-USD" → "BTC"
+      symbolChartMap[normalizedKey] = buildPriceMap(item.data);
+    }
+
+    chartData = chartData.map(point => {
+      const t = new Date(point.date);
+      
+      let totalValue = moneyUser;
+
+      for (const symbol in assetGroups) {
+        const lots = assetGroups[symbol];
+        const volume = getVolumeAtTime(lots, t);
+        const price = getPriceAtTime(symbolChartMap[symbol] ?? [], t);
+
+        console.log(symbol, volume, price)
+
+        if (volume > 0 && price !== null) {
+          totalValue += (volume * price);
+        }
+
+        if (price === null) {
+          const selectAsset = allMergeAssets.find(asset => asset.symbol === symbol);
+          const volumeAsset = selectAsset.volume;
+          totalValue += priceMap[symbol].price * volumeAsset;
+
+          // console.log(symbol, priceMap[symbol].price, volumeAsset);
+        } else if (volume <= 0 && price === null) {
+          const selectAsset = allMergeAssets.find(asset => asset.symbol === symbol);
+          const cost = selectAsset.cost;
+          totalValue += cost;
+        }
+      }
+
       return {
-        symbol,
-        data: result.quotes.map(({ date, close }) => ({ date, close }))
+        date: point.date,
+        close: totalValue
       };
-    })
-  );
-  */
+    });
+  }
 
-  // console.log(chartAllSymbol[0].data);
+  chartData = chartData.filter(item => {
+    const itemDate = new Date(item.date);
+    
+    return itemDate.getTime() <= today.getTime() + 1000;
+  });
 
-  let minValue = 500;
-  let maxValue = 2000;
+  chartData = chartData.filter(item => {
+    const itemDate = new Date(item.date);
+    const createDate = userData.time;
+
+    return createDate.getTime() <= itemDate.getTime();
+  });
+
+  console.table(chartData);
+
+  const priceData = chartData.map(item => item.close);
+
+  let minValue = Math.min(...priceData);
+  let maxValue = Math.max(...priceData);
   let axisY = [];
   let axisYRaw = [];
 
-  minValue *= 0.92;
-  maxValue *= 1.08;
+  if (minValue === maxValue) {
+    chartData = chartData.map(item => ({
+      ...item,
+      close: item.close * (1 + ((Math.random() * 2) - 1)/20000)
+    }));
+  }
+
+  minValue *= 0.95;
+  maxValue *= 1.05;
 
   // ? Y - Axis
   function niceStep(min, max, steps) {
@@ -592,7 +729,7 @@ async function capturePortfolio(interaction) {
 
   // ? X - Axis
   let axisX = [];
-  let chartArray = []; // 'x,y' '50-1400, 0-340'
+  let chartArray = []; // 'x,y' '50-1460, 0-300'
   let chartArrayX = []; // 'x'
   let chartArrayY = []; // 'y'
 
@@ -602,52 +739,42 @@ async function capturePortfolio(interaction) {
     return Math.min(Math.max(mapped, outMin), outMax);
   };
 
-  const mockData = [
-    { date: '2026-06-06T01:00:00.000Z', value: 1354 },
-    { date: '2026-06-06T02:00:00.000Z', value: 1025 },
-    { date: '2026-06-06T03:00:00.000Z', value: 1254 },
-    { date: '2026-06-06T04:00:00.000Z', value: 1756 },
-    { date: '2026-06-06T05:00:00.000Z', value: 1012 },
-    { date: '2026-06-06T06:00:00.000Z', value: 1542 },
-    { date: '2026-06-06T07:00:00.000Z', value: 1392 },
-    { date: '2026-06-06T08:00:00.000Z', value: 1642 },
-    { date: '2026-06-06T09:00:00.000Z', value: 1942 },
-    { date: '2026-06-06T10:00:00.000Z', value: 1202 },
-  ];
-
-  axisX = buildAxisX(mockData);
+  axisX = buildAxisX(chartData);
   // console.log(axisX);
-
-  // test
+  
   const axisStart = new Date(axisX[0].date);
-  const axisEnd = new Date(axisX[12].date);
+  const axisEnd = new Date(axisX[axisX.length - 1].date);
   const totalTimeM = (axisEnd - axisStart) / (1000 * 60);
 
-  for (let i = 0; i < mockData.length; i++) {
-    const mockTime = new Date(mockData[i].date);
+  function createLine(chartData, array, arrayX, arrayY) {
+    for (let i = 0; i < chartData.length; i++) {
+      const dataTime = new Date(chartData[i].date);
 
-    if (mockTime < axisStart || mockTime > axisEnd) continue;
-    const mockValue = mockData[i].value;
+      if (dataTime < axisStart || dataTime > axisEnd) continue;
+      const dataValue = chartData[i].close;
 
-    const diffTimeM = (mockTime - axisStart) / (1000 * 60);
+      const diffTimeM = (dataTime - axisStart) / (1000 * 60);
 
-    const timeX = mapRange(diffTimeM, 0, totalTimeM, 50, 1460, false);
-    const valueY =  300 - mapRange(mockValue, axisYRaw[0], axisYRaw[6], 0, 300, true);
+      const timeX = mapRange(diffTimeM, 0, totalTimeM, 50, 1460, false);
+      const valueY =  300 - mapRange(dataValue, axisYRaw[0], axisYRaw[6], 0, 300, true);
 
-    chartArray.push(`${timeX.toFixed(2)},${valueY.toFixed(2)}`);
-    chartArrayX.push(`${timeX.toFixed(2)}`);
-    chartArrayY.push(`${valueY.toFixed(2)}`);
+      array.push(`${timeX.toFixed(2)},${valueY.toFixed(2)}`);
+      arrayX.push(`${timeX.toFixed(2)}`);
+      arrayY.push(`${valueY.toFixed(2)}`);
+    }
   }
+  
+  createLine(chartData, chartArray, chartArrayX, chartArrayY);
 
-
-  // console.log(chartArray.join(' ').trim());
-  // console.log(chartArray);
-  // console.log(totalTimeM);
-
+  // ! init label
   const chartX = doc.querySelectorAll('.chart-label-x');
-  for (let i = 0; i < 13; i++) {
+  for (let i = 0; i < axisX.length; i++) {
     chartX[i].innerHTML = axisX[i].label;
   }
+  const chartXdate = doc.querySelector('.chart-label-x-date');
+  const crossDate = dayjs(axisEnd).tz('Asia/Bangkok').format('DD MMM');
+  chartXdate.innerHTML = crossDate;
+
 
   // ! Graph SVG
   const chartSVG = doc.querySelector('.chart-svg-line');
